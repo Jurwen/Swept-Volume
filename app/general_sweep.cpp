@@ -35,6 +35,12 @@ int main(int argc, const char *argv[])
     std::string function_file = args.function_file;
     double threshold = args.threshold;
     
+    /// main function:
+    ///
+    vertexCol timeMap;
+    tetCol cell5Map;
+    init_grid::init5CGrid(3, grid, 1024, timeMap, cell5Map);
+    
     /// save the grid output for discretization tool
     save_mesh_json("grid.json", grid);
     /// write grid and active tets
