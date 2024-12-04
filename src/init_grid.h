@@ -291,20 +291,20 @@ auto comp = [](const std::tuple<int, int, uint64_t>& e0, const std::tuple<int, i
 /// @param[in] tid: the tetrahedra id that is going to be extruded
 /// @param[in] timeMap: the map from vertex to a list of time samples.
 /// @return A list of cell5 elements. 
-std::vector<cell5> sampleCol(mtet::MTetMesh grid, mtet::TetId tid, vertexCol &timeMap){
-    std::span<mtet::VertexId, 4> vs = grid.get_tet(tid);
+std::vector<cell5> sampleCol(std::span<mtet::VertexId, 4> vs, vertexCol &timeMap){
     std::vector<vertex4d> ti = timeMap[value_of(vs[0])];
     std::vector<vertex4d> tj = timeMap[value_of(vs[1])];
     std::vector<vertex4d> tk = timeMap[value_of(vs[2])];
     std::vector<vertex4d> tl = timeMap[value_of(vs[3])];
-    std::array<uint64_t, 4> quad = {value_of(vs[0]), value_of(vs[0]), value_of(vs[0]), value_of(vs[0])};
+    std::array<uint64_t, 4> quad = {value_of(vs[0]), value_of(vs[1]), value_of(vs[2]), value_of(vs[3])};
     vertex4d last;
     last.time = ti.back().time * 2;
     ti.push_back(last);
     tj.push_back(last);
     tk.push_back(last);
     tl.push_back(last);
-    std::vector<cell5> cell5Col(ti.size()+tj.size()+tk.size()+tl.size() - 8);
+    std::vector<cell5> cell5Col;
+    cell5Col.reserve(ti.size()+tj.size()+tk.size()+tl.size() - 8);
     int i = 1, j = 1, k = 1, l = 1;
     while (i < ti.size() || j < tj.size() || k < tk.size() || l < tl.size()) {
         std::array<std::tuple<int, int, uint64_t>, 4> candidates = {
@@ -335,6 +335,7 @@ std::vector<cell5> sampleCol(mtet::MTetMesh grid, mtet::TetId tid, vertexCol &ti
                 break;
         }
         cell5Col.push_back(simp);
+        std::cout << simp.hash[0] << " " << simp.hash[1] << " " << simp.hash[2] << " " << simp.hash[3] << " " << simp.hash[4] << " " << std::endl;
     }
     return cell5Col;
 }
@@ -344,9 +345,7 @@ std::vector<cell5> sampleCol(mtet::MTetMesh grid, mtet::TetId tid, vertexCol &ti
 /// @param[in] maxTimeDep: maximum interger-valued time depth of the trajectory. Default: 1024
 ///
 /// @param[out] timeList: a list of time stamps at this vertex
-void init5CGrid(const int timeDep, const mtet::MTetMesh grid, const int maxTimeDep, vertexCol &timeMap, tetCol &cell5Map){
-    timeMap.reserve(grid.get_num_vertices());
-    cell5Map.reserve(grid.get_num_tets());
+void init5CGrid(const int timeDep, mtet::MTetMesh grid, const int maxTimeDep, vertexCol &timeMap, tetCol &cell5Map){
     int timeLen = pow(2, timeDep - 1);
     int len = maxTimeDep / timeLen;
     std::vector<vertex4d> time3DList(timeLen + 1);
@@ -357,8 +356,11 @@ void init5CGrid(const int timeDep, const mtet::MTetMesh grid, const int maxTimeD
     }
     grid.seq_foreach_vertex([&](mtet::VertexId vid, std::span<const mtet::Scalar, 3> data)
                             {timeMap[value_of(vid)] = time3DList;});
-    grid.seq_foreach_tet([&](mtet::TetId tid, [[maybe_unused]] std::span<const mtet::VertexId, 4> vs){
-        std::vector<cell5> col = sampleCol(grid, tid, timeMap);
+    grid.seq_foreach_tet([&](mtet::TetId tid, [[maybe_unused]] std::span<const mtet::VertexId, 4> data){
+        std::span<VertexId, 4> vs = grid.get_tet(tid);
+        std::vector<cell5> col = sampleCol(vs, timeMap);
+        
+        cell5Map[vs] = col;
     });
     
 }

@@ -28,6 +28,8 @@ struct cell5{
     //std::array<double, 4> coords[5]; //not sure if its cost benefit
 };
 
+using vertexCol = ankerl::unordered_dense::map<uint64_t, std::vector<vertex4d>>;
+
 /// First, hash four tet vertices into a `uint64_t`
 /// Since the tetid isn't const during the process, mount the boolean using vertexids of 4 corners.
 struct TetHash
@@ -52,7 +54,6 @@ struct TetEqual
     }
 };
 
-using vertexCol = ankerl::unordered_dense::map<uint64_t, std::vector<vertex4d>>;
 using tetCol = ankerl::unordered_dense::map<std::span<mtet::VertexId, 4>, std::vector<cell5>, TetHash, TetEqual>;
 
 #endif /* adaptive_column_grid_h */

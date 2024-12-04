@@ -45,6 +45,9 @@ int main(int argc, const char *argv[])
     save_mesh_json("grid.json", grid);
     /// write grid and active tets
     mtet::save_mesh("tet_grid.msh", grid);
+    if (!save_4d_grid("grid4D.json",grid,timeMap,cell5Map)){
+        std::cout << "Error: save 4D grid failed." << std::endl;
+    }
 
     return 0;
 }
