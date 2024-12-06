@@ -14,16 +14,21 @@
 #include <mtet/mtet.h>
 #include <mtet/io.h>
 #include <math.h>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+#include <Eigen/LU>
 
 using namespace mtet;
 
 struct vertex4d{
-    int time;
-    //double coord; //not sure if its cost benefit
+    int time; //int-valued hash; Default largest timestamp is 1024, i.e., no 
+    std::array<double, 4> coord;
+    Eigen::RowVector4d valGradList;
 };
 
 struct cell5{
     std::array<int, 5> hash; //same data structure as an element in cell5List(Mathematica)
+    int level; // to prevent a subdivision of cell5 that's already been refined spatially
     //std::pair<mtet::VertexId, int> vertices[5]; //not sure if its cost benefit
     //std::array<double, 4> coords[5]; //not sure if its cost benefit
 };

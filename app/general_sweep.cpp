@@ -3,9 +3,12 @@
 #include <optional>
 #include <CLI/CLI.hpp>
 #include <mtet/io.h>
+#include <implicit_functions.h>
 
 #include "init_grid.h"
 #include "io.h"
+#include "col_gridgen.h"
+#include "trajectory.h"
 
 int main(int argc, const char *argv[])
 {
@@ -36,17 +39,44 @@ int main(int argc, const char *argv[])
     double threshold = args.threshold;
     
     /// main function:
+    
+    /// Read implicit function
+    std::vector<std::unique_ptr<ImplicitFunction<double>>> functions;
+    load_functions(function_file, functions);
+    std::unique_ptr<ImplicitFunction<double>> &object = functions[0];
+    auto trajFunc = trajLine;
+    
     ///
+    /// the lambda function for function evaluations
+    ///  @param[in] data            The 3D coordinate
+    ///  @param[in] funcNum         The number of functions
+    ///
+    ///  @return `Eigen::RowVector4d`. It represents the value at 0th index and gradients at {1, 2, 3} index.
+    auto implicit_sweep = [&](std::span<const Scalar, 4> data){
+        Eigen::RowVector3d traversed = trajFunc(data[3], data.first<3>());
+        Eigen::RowVector4d eval;
+        eval[0] = object->evaluate_gradient(traversed[0], traversed[1], traversed[2], eval[1], eval[2], eval[3]);
+        return Eigen::RowVector4d{-1 * eval[0], -1 * eval[1], -1 * eval[2], -1 * eval[3]};
+    };
+    
+    ///
+    ///
+    ///Grid generation:
     vertexCol timeMap;
     tetCol cell5Map;
-    init_grid::init5CGrid(3, grid, 1024, timeMap, cell5Map);
+    if (!gridRefine(grid, timeMap, cell5Map, implicit_sweep, threshold)){
+        throw std::runtime_error("ERROR: grid generation failed");
+        return 0;
+    };
     
     /// save the grid output for discretization tool
     save_mesh_json("grid.json", grid);
     /// write grid and active tets
     mtet::save_mesh("tet_grid.msh", grid);
+    
+    std::cout << "saving 4D grid..." << std::endl;
     if (!save_4d_grid("grid4D.json",grid,timeMap,cell5Map)){
-        std::cout << "Error: save 4D grid failed." << std::endl;
+        throw std::runtime_error ("Error: save 4D grid failed.");
     }
 
     return 0;

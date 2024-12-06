@@ -65,7 +65,7 @@ bool save_4d_grid(const std::string& filename,
         curSum += timeStamp.size();
     });
     int simpNum = 0;
-    std::cout << "start simp output" << std::endl;
+//    std::cout << "start simp output" << std::endl;
     grid.seq_foreach_tet([&](TetId tid, [[maybe_unused]] std::span<const VertexId, 4> data) {
         std::span<VertexId, 4> vs = grid.get_tet(tid);
         std::vector<cell5> cell5Col = cell5Map[vs];
@@ -86,7 +86,7 @@ bool save_4d_grid(const std::string& filename,
             curSimp[1] = headList[1] + (int)simpHash[1];
             curSimp[2] = headList[2] + (int)simpHash[2];
             curSimp[3] = headList[3] + (int)simpHash[3];
-            std::cout << " " << simpHash[0]<< " " << simpHash[1]<< " " << simpHash[2]<< " " << simpHash[3]<< " " << simpHash[4] << std::endl;
+//            std::cout << " " << simpHash[0]<< " " << simpHash[1]<< " " << simpHash[2]<< " " << simpHash[3]<< " " << simpHash[4] << std::endl;
             curSimp[4] = curSimp[simpHash[4]] - 1;
             simps.push_back(curSimp);
         }
