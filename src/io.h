@@ -17,7 +17,7 @@ bool save_mesh_json(const std::string& filename,
 
 bool save_4d_grid(const std::string& filename,
                   mtet::MTetMesh grid,
-                  vertexCol timeMap,
-                  tetCol cell5Map);
+                  vertExtrude vertexMap,
+                  tetExtrude cell5Map);
 
 #endif /* io_h */

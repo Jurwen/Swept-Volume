@@ -7,6 +7,6 @@
 			0
 		],
 		"radius":0.3,
-		"squared": false
+		"squared": true
 	}
 ]

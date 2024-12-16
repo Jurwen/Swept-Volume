@@ -10,7 +10,7 @@ include(mtet)
 include(implicit_functions)
 include(convex_hull_membership)
 include(unordered_dense)
-# include(smallvector)
+include(smallvector)
 
 
 # project library
@@ -25,7 +25,7 @@ target_link_libraries(adaptive_column_grid
     convex_hull_membership
     implicit_functions::implicit_functions
     nlohmann_json::nlohmann_json
-    # smallvector::smallvector
+    smallvector::smallvector
     unordered_dense::unordered_dense
     )
 
@@ -36,8 +36,9 @@ target_include_directories(general_sweep PUBLIC ${CMAKE_CURRENT_LIST_DIR}/src)
 target_link_libraries(general_sweep PRIVATE
     adaptive_column_grid
     CLI11::CLI11
-    mtet::mtet 
-    convex_hull_membership
-    unordered_dense::unordered_dense
+    # mtet::mtet 
+
+    # convex_hull_membership
+    # unordered_dense::unordered_dense
     # smallvector::smallvector
     )

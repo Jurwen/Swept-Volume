@@ -9,11 +9,13 @@
 #define col_gridgen_h
 
 #include "adaptive_column_grid.h"
+#include "ref_crit.h"
 
-bool gridRefine(mtet::MTetMesh grid,
-                vertexCol &timeMap,
-                tetCol &cell5Map,
-                const std::function<Eigen::RowVector4d(std::span<const Scalar, 4>)> func,
-                const double threshold);
+bool gridRefine(mtet::MTetMesh &grid,
+                vertExtrude &vertexMap,
+                tetExtrude &cell5Map,
+                const std::function<std::pair<Scalar, Eigen::RowVector4d>(Eigen::RowVector4d)> func,
+                const double threshold,
+                const int max_splits);
 
 #endif /* col_gridgen_h */
