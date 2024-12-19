@@ -41,40 +41,33 @@ std::pair<Scalar, Eigen::RowVector4d> sphereLine(Eigen::RowVector4d input) {
     return {value, gradient};
 }
 
-std::pair<Scalar, Eigen::RowVector4d> sphereLoopDLoop(Eigen::RowVector4d input) {
-    // Extract inputs {xx, yy, zz, tt}
-    Scalar xx = input[0];
-    Scalar yy = input[1];
-    Scalar zz = input[2];
-    Scalar tt = input[3];
-
-    // Compute intermediate terms
-    Scalar t1 = -0.175 - 4 * std::pow(1 - tt, 2) * tt + 2 * (1 - tt) * std::pow(tt, 2) - (2 * std::pow(tt, 3)) / 3 + xx;
-    Scalar t2 = -0.2 - 2 * std::pow(1 - tt, 2) * tt - 2 * (1 - tt) * std::pow(tt, 2) + yy;
-    Scalar t3 = -0.5 + zz;
-
-    // Compute the scalar value (first row)
-    Scalar value = -0.024025 + std::pow(t1, 2) + std::pow(t2, 2) + std::pow(t3, 2);
-
-    // Compute the gradient (second row)
+std::pair<Scalar, Eigen::RowVector4d> sphereLoopDLoop(Eigen::RowVector4d inputs) {
+    Scalar value;
     Eigen::RowVector4d gradient;
-
-    // Gradient with respect to xx
-    gradient[0] = 2 * t1;
-
-    // Gradient with respect to yy
-    gradient[1] = 2 * t2;
-
-    // Gradient with respect to zz
-    gradient[2] = 2 * t3;
-
-    // Gradient with respect to tt
-    gradient[3] = 2 * (
-        t1 * (-4 * std::pow(1 - tt, 2) + 12 * (1 - tt) * tt - 4 * std::pow(tt, 2)) +
-        t2 * (-2 * std::pow(1 - tt, 2) + 2 * std::pow(tt, 2))
-     );
-     
-
+    // Unpack the inputs
+    Scalar xx = inputs[0];
+    Scalar yy = inputs[1];
+    Scalar zz = inputs[2];
+    Scalar tt = inputs[3];
+    
+    // Scalar computation
+    Scalar term1 = -0.175 - 4 * std::pow(1 - tt, 2) * tt + 2 * (1 - tt) * std::pow(tt, 2) - (2 * std::pow(tt, 3)) / 3 + xx;
+    Scalar term2 = -0.2 - 2 * std::pow(1 - tt, 2) * tt - 2 * (1 - tt) * std::pow(tt, 2) + yy;
+    Scalar term3 = -0.5 + zz;
+    
+    value = -0.024025 + std::pow(term1, 2) + std::pow(term2, 2) + std::pow(term3, 2);
+    
+    // Gradient computation
+    gradient[0] = 2 * term1; // Partial derivative w.r.t. xx
+    gradient[1] = 2 * term2; // Partial derivative w.r.t. yy
+    gradient[2] = 2 * term3; // Partial derivative w.r.t. zz
+    
+    Scalar d_term1_d_tt = -4 * std::pow(1 - tt, 2) + 12 * (1 - tt) * tt - 4 * std::pow(tt, 2);
+    Scalar d_term2_d_tt = -2 * std::pow(1 - tt, 2) + 2 * std::pow(tt, 2);
+    
+    gradient[3] = 2 * d_term1_d_tt * term1 + 2 * d_term2_d_tt * term2;
+    
+    
     return {value, gradient};
 }
 

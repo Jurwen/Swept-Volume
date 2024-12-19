@@ -37,6 +37,7 @@ class cell5{
 public:
     std::array<int, 5> hash;
     std::array<int, 5> time_list;
+    int level = 0;
     
     cell5() = default;
     
