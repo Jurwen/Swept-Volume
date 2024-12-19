@@ -129,7 +129,7 @@ std::pair<Scalar, Eigen::RowVector4d> flippingDonut(Eigen::RowVector4d inputs) {
     gradient[2] = (2 * term_zz * sqrt_outer) / sqrt_inner;
     
     // Gradient w.r.t. tt
-    gradient[3] = 2 * (-pi * term_tt * cos_pi_tt - pi * yy * cos_pi_tt -
+    gradient[3] = 2 * (-0.5 * cos_pi_tt -pi * term_tt * cos_pi_tt - pi * yy * cos_pi_tt -
                        0.01 * sin_pi_tt - pi * term_tt2 * sin_pi_tt -
                        pi * xx * sin_pi_tt) *
     term1 +
