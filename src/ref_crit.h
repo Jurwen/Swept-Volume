@@ -13,19 +13,8 @@
 #include <convex_hull_membership/contains.h>
 
 bool refine4D(
-//              const std::array<Eigen::RowVector4d, 5>& pts,
-//              const std::array<double, 5>& vals,
-//              const std::array<Eigen::RowVector4d, 5>& grads,
               const std::array<vertex4d, 5> verts,
               const double threshold,
               bool& inside);
-
-bool refine4D_test(
-              const std::array<Eigen::RowVector4d, 5>& pts,
-              const std::array<double, 5>& vals,
-              const std::array<Eigen::RowVector4d, 5>& grads,
-              const double threshold,
-                   bool& inside);
-
 
 #endif /* ref_crit_h */

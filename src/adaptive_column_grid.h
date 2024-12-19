@@ -21,16 +21,68 @@
 
 using namespace mtet;
 
-struct vertex4d{
-    int time; //int-valued hash; Default largest timestamp is 1024, i.e., no 
+class vertex4d{
+public:
+    int time; //int-valued hash; Default largest timestamp is 1024
     Eigen::RowVector4d coord;
     std::pair<Scalar, Eigen::RowVector4d> valGradList;
+    
+    vertex4d() = default;
 };
 
-struct cell5{
-    std::array<int, 5> hash; //same data structure as an element in cell5List(Mathematica)
-    //std::pair<mtet::VertexId, int> vertices[5]; //not sure if its cost benefit
-    //std::array<double, 4> coords[5]; //not sure if its cost benefit
+auto compVertex = [](vertex4d v0, vertex4d v1){
+    return v0.time < v1.time;};
+
+class cell5{
+public:
+    std::array<int, 5> hash;
+    std::array<int, 5> time_list;
+    
+    cell5() = default;
+    
+    int top(){
+        return time_list[hash[4]];
+    }
+    
+    int bot(int i){
+        if (i == hash[4]){
+            return time_list[4];
+        }else{
+            return time_list[i];
+        }
+    }
+    
+    cell5 rebuildCell5(const int time, const int ind){
+        cell5 simp;
+
+        std::array<int, 5> botInd = {hash[0], hash[1], hash[2], hash[3], 0};
+        int i = bot(0), j = bot(1), k = bot(2), l = bot(3);
+        botInd[hash[4]] --;
+        switch (ind) {
+            case 0:
+                botInd[0]++;
+                botInd[4] = 0;
+                simp.time_list = {time, j, k, l, i};
+                break;
+            case 1:
+                botInd[1]++;
+                botInd[4] = 1;
+                simp.time_list = {i, time, k, l, j};
+                break;
+            case 2:
+                botInd[2]++;
+                botInd[4] = 2;
+                simp.time_list = {i, j, time, l, k};
+                break;
+            case 3:
+                botInd[3]++;
+                botInd[4] = 3;
+                simp.time_list = {i, j, k, time, l};
+                break;
+        }
+        simp.hash = botInd;
+        return simp;
+    }
 };
 
 class vertexCol{
@@ -45,6 +97,14 @@ public:
     vertToSimp vertTetAssoc;
     
     vertexCol() = default;
+    
+    int insertTime(vertex4d& newVert) {
+        // Find the position to insert using binary search
+        auto it = std::lower_bound(timeStamp.begin(), timeStamp.end(), newVert, compVertex);
+        int ind = std::distance(timeStamp.begin(), it);
+        timeStamp.insert(it, newVert);
+        return ind;
+    }
     
     time_list getTimeList(){
         time_list timeList(timeStamp.size());
@@ -63,10 +123,14 @@ public:
     }
 };
 
-struct simpCol{
+class simpCol{
+public:
+    //~simpCol(){}
     using cell5_list = llvm_vecsmall::SmallVector<cell5, 256>;
     cell5_list cell5Col;
     int level = 0;// to prevent a subdivision of cell5 that's already been refined spatially
+    
+    simpCol() = default;
 };
 
 using vertExtrude = ankerl::unordered_dense::map<uint64_t, vertexCol/*std::vector<vertex4d>*/>;

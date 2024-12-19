@@ -80,6 +80,7 @@ bool save_4d_grid(const std::string& filename,
             }
             std::array<size_t, 5> curSimp;
             std::array<int, 5> simpHash = cell5Col[i].hash;
+//            std::cout << simpHash[0] << " "<< simpHash[1] << " "<< simpHash[2] << " "<< simpHash[3] << " "<< simpHash[4] << " " << std::endl;
             curSimp[0] = headList[0] + (int)simpHash[0];
             curSimp[1] = headList[1] + (int)simpHash[1];
             curSimp[2] = headList[2] + (int)simpHash[2];

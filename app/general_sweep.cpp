@@ -56,7 +56,7 @@ int main(int argc, const char *argv[])
     ///  @return    A std::pari<Scalar, Eigen::RowVector4d> of the value and the gradients at this 4D point
     
     auto implicit_sweep = [&](Eigen::RowVector4d data){
-        return example2(data);
+        return flippingDonut(data);
     };
     ///
     ///
@@ -80,7 +80,7 @@ int main(int argc, const char *argv[])
     /// write grid and active tets
     mtet::save_mesh("tet_grid.msh", grid);
 
-    //std::cout << "saving 4D grid..." << std::endl;
+//    std::cout << "saving 4D grid..." << std::endl;
     if (!save_4d_grid("grid4D.json",grid,vertexMap,cell5Map)){
         throw std::runtime_error ("Error: save 4D grid failed.");
     }
