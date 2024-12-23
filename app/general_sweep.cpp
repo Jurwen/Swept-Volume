@@ -4,13 +4,14 @@
 #include <CLI/CLI.hpp>
 #include <mtet/io.h>
 #include <implicit_functions.h>
+#include <chrono>
 
 #include "init_grid.h"
 #include "io.h"
 #include "col_gridgen.h"
 #include "trajectory.h"
 #include "ref_crit.h"
-#include <chrono>
+#include "timer.h"
 
 int main(int argc, const char *argv[])
 {
@@ -63,11 +64,13 @@ int main(int argc, const char *argv[])
     ///Grid generation:
     vertExtrude vertexMap;
     tetExtrude cell5Map;
+    std::array<double, timer_amount> profileTimer = {0,0};
     auto starterTime = std::chrono::high_resolution_clock::now();
-    if (!gridRefine(grid, vertexMap, cell5Map, implicit_sweep, threshold, max_splits)){
+    if (!gridRefine(grid, vertexMap, cell5Map, implicit_sweep, threshold, max_splits, profileTimer)){
         throw std::runtime_error("ERROR: grid generation failed");
         return 0;
     };
+    std::cout << profileTimer[0] << " " << profileTimer[1] << " ";
     auto stopperTime = std::chrono::high_resolution_clock::now();
     auto start = std::chrono::time_point_cast<std::chrono::microseconds>(starterTime).time_since_epoch().count();
     auto end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();

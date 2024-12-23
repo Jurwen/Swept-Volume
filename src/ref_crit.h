@@ -12,10 +12,13 @@
 #include "adaptive_column_grid.h"
 #include <convex_hull_membership/contains.h>
 
-bool refine4D(
-              const std::array<vertex4d, 5> verts,
-              const double threshold,
-              bool& inside,
-              bool& choice);
+bool refineContour(
+                   const std::array<vertex4d, 5> verts,
+                   const double threshold,
+                   bool& inside,
+                   bool& choice);
 
+bool refineCap(
+               const std::array<vertex4d, 4> verts,
+               const double threshold);
 #endif /* ref_crit_h */

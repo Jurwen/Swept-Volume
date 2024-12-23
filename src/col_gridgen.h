@@ -10,12 +10,14 @@
 
 #include "adaptive_column_grid.h"
 #include "ref_crit.h"
+#include "timer.h"
 
 bool gridRefine(mtet::MTetMesh &grid,
                 vertExtrude &vertexMap,
                 tetExtrude &cell5Map,
                 const std::function<std::pair<Scalar, Eigen::RowVector4d>(Eigen::RowVector4d)> func,
                 const double threshold,
-                const int max_splits);
+                const int max_splits,
+                std::array<double, timer_amount>& profileTimer);
 
 #endif /* col_gridgen_h */

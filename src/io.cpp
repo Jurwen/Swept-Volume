@@ -46,6 +46,9 @@ bool save_4d_grid(const std::string& filename,
     verts.reserve(grid.get_num_vertices() * 256);
     std::vector<std::array<size_t, 5>> simps;
     int simps_reserved = grid.get_num_tets() * 256;
+    std::vector<std::array<size_t, 4>> ulsimp, llsimp;
+    ulsimp.reserve(grid.get_num_tets());
+    llsimp.reserve(grid.get_num_tets());
     simps.reserve(simps_reserved);
     using IndexMap = ankerl::unordered_dense::map<uint64_t, size_t>;
     IndexMap ind4DMap;
@@ -68,26 +71,46 @@ bool save_4d_grid(const std::string& filename,
     grid.seq_foreach_tet([&](TetId tid, [[maybe_unused]] std::span<const VertexId, 4> data) {
         std::span<VertexId, 4> vs = grid.get_tet(tid);
         simpCol::cell5_list cell5Col = cell5Map[vs].cell5Col;
+        if (cell5Col.size() == 0){
+            return;
+        }
         std::array<size_t, 4> headList;
         headList[0] = vertHashHead[ind4DMap[value_of(vs[0])]];
         headList[1] = vertHashHead[ind4DMap[value_of(vs[1])]];
         headList[2] = vertHashHead[ind4DMap[value_of(vs[2])]];
         headList[3] = vertHashHead[ind4DMap[value_of(vs[3])]];
-        for (size_t i = 0; i < cell5Col.size(); i++){
+        size_t i = 0;
+        std::array<int, 5> simpHash;
+        std::array<size_t, 5> curSimp;
+        while (i < cell5Col.size()){
             simpNum ++;
             if (simpNum > simps_reserved){
                 simps_reserved *= 2;
                 simps.reserve(simps_reserved);
             }
-            std::array<size_t, 5> curSimp;
-            std::array<int, 5> simpHash = cell5Col[i]->hash;
-            curSimp[0] = headList[0] + (int)simpHash[0];
-            curSimp[1] = headList[1] + (int)simpHash[1];
-            curSimp[2] = headList[2] + (int)simpHash[2];
-            curSimp[3] = headList[3] + (int)simpHash[3];
+            simpHash = cell5Col[i]->hash;
+            //std::cout << simpHash[0] << " " <<  simpHash[1] <<" " <<simpHash[2] <<" " <<simpHash[3] << std::endl;
+            curSimp[0] = headList[0] + (size_t)simpHash[0];
+            curSimp[1] = headList[1] + (size_t)simpHash[1];
+            curSimp[2] = headList[2] + (size_t)simpHash[2];
+            curSimp[3] = headList[3] + (size_t)simpHash[3];
             curSimp[4] = curSimp[simpHash[4]] - 1;
             simps.emplace_back(curSimp);
+            i++;
         }
+        ulsimp.emplace_back(headList);
+        std::array<int, 5> llSimpHash = cell5Col[i - 1]->hash;
+        std::array<size_t, 4> llface;
+//        llface[0] = headList[0] + (size_t)llSimpHash[0];
+//        llface[1] = headList[1] + (size_t)llSimpHash[1];
+//        llface[2] = headList[2] + (size_t)llSimpHash[2];
+//        llface[3] = headList[3] + (size_t)llSimpHash[3];
+        llface[0] = curSimp[0];
+        llface[1] = curSimp[1];
+        llface[2] = curSimp[2];
+        llface[3] = curSimp[3];
+        //std::cout << curSimp[0] << " " <<  curSimp[1] <<" " <<curSimp[2] <<" " <<curSimp[3] << std::endl;
+        llsimp.emplace_back(llface);
     });
     std::cout << grid.get_num_tets() << " " << simps.size() << std::endl;
     if (std::filesystem::exists(filename.c_str())){
@@ -98,6 +121,8 @@ bool save_4d_grid(const std::string& filename,
     json jOut;
     jOut.push_back(json(verts));
     jOut.push_back(json(simps));
+    jOut.push_back(json(ulsimp));
+    jOut.push_back(json(llsimp));
     fout << jOut.dump(4, ' ', true, json::error_handler_t::replace) << std::endl;
     fout.close();
     return true;
