@@ -333,6 +333,11 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude &cell5M
                     longest_edge_length = l;
                     longest_edge = eid;
                 } });
+            std::vector<int> timeLenList(cell5Col.size());
+            std::vector<mtet::Scalar> timeList(cell5Col.size());
+            std::vector<size_t> indList(cell5Col.size());
+            std::vector<bool> subList(cell5Col.size(), false);
+            std::vector<bool> choiceList(cell5Col.size());
             for (size_t cell5It = 0; cell5It < cell5Col.size(); cell5It++){
                 auto simp = cell5Col[cell5It];
                 std::array<int, 5> cell5Index = simp->hash;
@@ -350,21 +355,34 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude &cell5M
                 bool inside = false;
                 bool choice = false;
                 bool ret = refine4D(verts, threshold, inside, choice);
-                if (ret){
-                    double timeLens =verts[0].coord[3] - verts[4].coord[3];
-                    if (timeLens * timeLens > longest_edge_length){
-                        if (verts[0].time - verts[4].time > 4){
-                            timeQ.emplace_back(timeLens, tid, vs[lastInd], (verts[0].time + verts[4].time) / 2,
-                                               simp);//colInfo.level);
+                if (inside) {
+                    cell5Map[vs].covered = true;
+                    break;
+                }
+                if (ret) {
+                    subList[cell5It] = true;
+                    timeLenList[cell5It] = verts[0].time - verts[4].time;
+                    timeList[cell5It] = (verts[0].time + verts[4].time) / 2;
+                    indList[cell5It] = lastInd;
+                    choiceList[cell5It] = choice;
+                }
+            }
+            for (size_t cell5It = 0; cell5It < cell5Col.size(); cell5It++){
+                if (subList[cell5It]){
+                    if (choiceList[cell5It]){
+                        if (timeLenList[cell5It] > 4){
+                            timeQ.emplace_back(timeLenList[cell5It], tid, vs[indList[cell5It]], timeList[cell5It],
+                                               cell5Col[cell5It]);//colInfo.level);
                             std::push_heap(timeQ.begin(), timeQ.end(), compTime);
                         }
                     }else{
                         if (!baseSub){
-                            spaceQ.emplace_back(longest_edge_length, tid, longest_edge, simp);
+                            spaceQ.emplace_back(longest_edge_length, tid, longest_edge, cell5Col[cell5It]);
                             std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
                             baseSub = true;
                         }
                     }
+                    
                 }
             }
         };
@@ -392,6 +410,11 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude &cell5M
                     longest_edge_length = l;
                     longest_edge = eid;
                 } });
+            std::vector<int> timeLenList(refineList.size());
+            std::vector<mtet::Scalar> timeList(refineList.size());
+            std::vector<size_t> indList(refineList.size());
+            std::vector<bool> subList(refineList.size(), false);
+            std::vector<bool> choiceList(refineList.size());
             for (size_t it = 0; it < refineList.size(); it++){
                 size_t cell5It = refineList[it];
                 auto simp = cell5Col[cell5It];
@@ -410,17 +433,31 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude &cell5M
                 bool inside = false;
                 bool choice = false;
                 bool ret = refine4D(verts, threshold, inside, choice);
-                if (ret){
-                    double timeLens =verts[0].coord[3] - verts[4].coord[3];
-                    if (timeLens * timeLens > longest_edge_length){
-                        if (verts[0].time - verts[4].time > 4){
-                            timeQ.emplace_back(timeLens, tid, vs[lastInd], (verts[0].time + verts[4].time) / 2,
-                                               simp);//colInfo.level);
+                if (inside) {
+                    cell5Map[vs].covered = true;
+                    break;
+                }
+                if (ret) {
+                    subList[it] = true;
+                    timeLenList[it] = verts[0].time - verts[4].time;
+                    timeList[it] = (verts[0].time + verts[4].time) / 2;
+                    indList[it] = lastInd;
+                    choiceList[it] = choice;
+                }
+                
+            }
+            for (size_t it = 0; it < refineList.size(); it++){
+                size_t cell5It = refineList[it];
+                if (subList[it]){
+                    if (choiceList[it]){
+                        if (timeLenList[it] > 4){
+                            timeQ.emplace_back(timeLenList[it], tid, vs[indList[it]], timeList[it],
+                                               cell5Col[cell5It]);//colInfo.level);
                             std::push_heap(timeQ.begin(), timeQ.end(), compTime);
                         }
                     }else{
                         if (!baseSub){
-                            spaceQ.emplace_back(longest_edge_length, tid, longest_edge, simp);
+                            spaceQ.emplace_back(longest_edge_length, tid, longest_edge, cell5Col[cell5It]);
                             std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
                             baseSub = true;
                         }
@@ -445,8 +482,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude &cell5M
             vertexCol timeList = vertexMap[value_of(vid)];
             simpCol cell5List = cell5Map[vs];
             if (
-                simp->level != cell5List.level ||
-                timeList.timeExist[time]){
+                simp->level != cell5List.level || cell5List.covered || timeList.timeExist[time]){
                 continue;
             }
             splits ++;
@@ -487,7 +523,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude &cell5M
             }
             std::span<VertexId, 4> vs = grid.get_tet(tid);
             simpCol cell5List = cell5Map[vs];
-            if (simp->level != cell5List.level){
+            if (simp->level != cell5List.level || cell5List.covered){
                 continue;
             }
             splits ++;

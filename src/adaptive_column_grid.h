@@ -130,11 +130,10 @@ public:
 
 class simpCol{
 public:
-    //~simpCol(){}
     using cell5_list = llvm_vecsmall::SmallVector<std::shared_ptr<cell5>, 256>;
     cell5_list cell5Col;
     int level = 0;// to prevent a subdivision of cell5 that's already been refined spatially
-    
+    bool covered = false;
     simpCol() = default;
 };
 

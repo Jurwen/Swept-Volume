@@ -227,8 +227,8 @@ bool refine4D(
         grads[i] = verts[i].valGradList.second;
     }
     Eigen::RowVector<double, 35> bezierVals = bezier4D(pts, vals, grads);
-//    inside = inside || (std::max(bezierVals.head(4).maxCoeff(), (bezierVals.tail(30))(topFIndices).maxCoeff()) <= 0);
-//    inside = inside || (std::max(bezierVals({1,2,3,4}).maxCoeff(), (bezierVals.tail(30))(botFIndices).maxCoeff()) <= 0);
+    inside = inside || (std::max(bezierVals.head(4).maxCoeff(), (bezierVals.tail(30))(topFIndices).maxCoeff()) <= 0);
+    inside = inside || (std::max(bezierVals({1,2,3,4}).maxCoeff(), (bezierVals.tail(30))(botFIndices).maxCoeff()) <= 0);
     if (get_sign(bezierVals.maxCoeff()) == get_sign(bezierVals.minCoeff())){
         return false;
     }
@@ -267,9 +267,9 @@ bool refine4D(
         double gradNorm = (gradList[1][3] * gradList[0] - gradList[0][3] * gradList[1]).norm();
         Eigen::RowVector<double, 30> error = (Eigen::RowVector2d{gradList[1][3], -1 * gradList[0][3]} * diffList).array().abs();
         if (std::abs(error.maxCoeff() * D) > std::abs(threshold * gradNorm)){
-//            Eigen::RowVector<double, 16> topFError = error(topFIndices);
-//            Eigen::RowVector<double, 16> botFError = error(botFIndices);
-//            choice = std::max(error[3], error[16]) > std::min(topFError.maxCoeff(), botFError.maxCoeff());
+            Eigen::RowVector<double, 16> topFError = error(topFIndices);
+            Eigen::RowVector<double, 16> botFError = error(botFIndices);
+            choice = std::max(error[3], error[16]) > std::min(topFError.maxCoeff(), botFError.maxCoeff());
             return true;
         }
     }
