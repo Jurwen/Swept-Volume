@@ -210,11 +210,14 @@ std::array<double, 70> parse_convex_points2d(const Eigen::Matrix<double, 2, 35> 
     return transposed;
 }
 
+std::array<int, 16> topFIndices = {0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 20, 21, 23, 26};
+std::array<int, 16> botFIndices = {5, 6, 7, 9, 10, 11, 13, 14, 15, 17, 18, 19, 26, 27, 28, 29};
 
 bool refine4D(
               const std::array<vertex4d, 5> verts,
               const double threshold,
-              bool& inside){
+              bool& inside,
+              bool& choice){
     std::array<Eigen::RowVector4d, 5> pts;
     std::array<double, 5> vals;
     std::array<Eigen::RowVector4d, 5> grads;
@@ -224,6 +227,8 @@ bool refine4D(
         grads[i] = verts[i].valGradList.second;
     }
     Eigen::RowVector<double, 35> bezierVals = bezier4D(pts, vals, grads);
+//    inside = inside || (std::max(bezierVals.head(4).maxCoeff(), (bezierVals.tail(30))(topFIndices).maxCoeff()) <= 0);
+//    inside = inside || (std::max(bezierVals({1,2,3,4}).maxCoeff(), (bezierVals.tail(30))(botFIndices).maxCoeff()) <= 0);
     if (get_sign(bezierVals.maxCoeff()) == get_sign(bezierVals.minCoeff())){
         return false;
     }
@@ -262,6 +267,9 @@ bool refine4D(
         double gradNorm = (gradList[1][3] * gradList[0] - gradList[0][3] * gradList[1]).norm();
         Eigen::RowVector<double, 30> error = (Eigen::RowVector2d{gradList[1][3], -1 * gradList[0][3]} * diffList).array().abs();
         if (std::abs(error.maxCoeff() * D) > std::abs(threshold * gradNorm)){
+//            Eigen::RowVector<double, 16> topFError = error(topFIndices);
+//            Eigen::RowVector<double, 16> botFError = error(botFIndices);
+//            choice = std::max(error[3], error[16]) > std::min(topFError.maxCoeff(), botFError.maxCoeff());
             return true;
         }
     }

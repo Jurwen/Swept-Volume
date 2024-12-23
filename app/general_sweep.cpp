@@ -45,10 +45,10 @@ int main(int argc, const char *argv[])
     /// main function:
     
     /// Read implicit function
-    std::vector<std::unique_ptr<ImplicitFunction<double>>> functions;
-    load_functions(function_file, functions);
-    std::unique_ptr<ImplicitFunction<double>> &object = functions[0];
-    auto trajFunc = trajLine;
+//    std::vector<std::unique_ptr<ImplicitFunction<double>>> functions;
+//    load_functions(function_file, functions);
+//    std::unique_ptr<ImplicitFunction<double>> &object = functions[0];
+//    auto trajFunc = trajLine;
     
     ///
     /// the lambda function for function evaluations
@@ -56,7 +56,7 @@ int main(int argc, const char *argv[])
     ///  @return    A std::pari<Scalar, Eigen::RowVector4d> of the value and the gradients at this 4D point
     
     auto implicit_sweep = [&](Eigen::RowVector4d data){
-        return sphereLoopDLoop(data);
+        return flippingDonut(data);
     };
     ///
     ///
@@ -73,7 +73,7 @@ int main(int argc, const char *argv[])
     auto end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
     auto duration = end - start;
     double ms = duration * 0.001;
-    std::cout << ms << std::endl;
+    std::cout << ms << " ";
 
     /// save the grid output for discretization tool
     save_mesh_json("grid.json", grid);

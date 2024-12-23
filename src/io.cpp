@@ -63,6 +63,7 @@ bool save_4d_grid(const std::string& filename,
         vertHashIt++;
         curSum += timeStamp.size();
     });
+    std::cout << grid.get_num_vertices() << " " << verts.size() << " ";
     int simpNum = 0;
     grid.seq_foreach_tet([&](TetId tid, [[maybe_unused]] std::span<const VertexId, 4> data) {
         std::span<VertexId, 4> vs = grid.get_tet(tid);
@@ -79,8 +80,7 @@ bool save_4d_grid(const std::string& filename,
                 simps.reserve(simps_reserved);
             }
             std::array<size_t, 5> curSimp;
-            std::array<int, 5> simpHash = cell5Col[i].hash;
-//            std::cout << simpHash[0] << " "<< simpHash[1] << " "<< simpHash[2] << " "<< simpHash[3] << " "<< simpHash[4] << " " << std::endl;
+            std::array<int, 5> simpHash = cell5Col[i]->hash;
             curSimp[0] = headList[0] + (int)simpHash[0];
             curSimp[1] = headList[1] + (int)simpHash[1];
             curSimp[2] = headList[2] + (int)simpHash[2];
@@ -89,6 +89,7 @@ bool save_4d_grid(const std::string& filename,
             simps.emplace_back(curSimp);
         }
     });
+    std::cout << grid.get_num_tets() << " " << simps.size() << std::endl;
     if (std::filesystem::exists(filename.c_str())){
         std::filesystem::remove(filename.c_str());
     }

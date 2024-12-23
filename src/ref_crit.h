@@ -15,6 +15,7 @@
 bool refine4D(
               const std::array<vertex4d, 5> verts,
               const double threshold,
-              bool& inside);
+              bool& inside,
+              bool& choice);
 
 #endif /* ref_crit_h */

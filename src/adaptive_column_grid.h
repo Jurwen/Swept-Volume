@@ -53,7 +53,7 @@ public:
         }
     }
     
-    cell5 rebuildCell5(const int time, const int ind){
+    std::shared_ptr<cell5> rebuildCell5(const int time, const int ind){
         cell5 simp;
 
         std::array<int, 5> botInd = {hash[0], hash[1], hash[2], hash[3], 0};
@@ -82,7 +82,11 @@ public:
                 break;
         }
         simp.hash = botInd;
-        return simp;
+        return std::make_shared<cell5>(simp);
+    }
+    
+    cell5 copyCell5(){
+        return *this;
     }
 };
 
@@ -127,7 +131,7 @@ public:
 class simpCol{
 public:
     //~simpCol(){}
-    using cell5_list = llvm_vecsmall::SmallVector<cell5, 256>;
+    using cell5_list = llvm_vecsmall::SmallVector<std::shared_ptr<cell5>, 256>;
     cell5_list cell5Col;
     int level = 0;// to prevent a subdivision of cell5 that's already been refined spatially
     
