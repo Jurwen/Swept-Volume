@@ -137,4 +137,71 @@ std::pair<Scalar, Eigen::RowVector4d> flippingDonut(Eigen::RowVector4d inputs) {
     return {value, gradient};
 }
 
+// Function to compute the scalar value and gradient
+std::pair<Scalar, Eigen::RowVector4d> flippingDonutFullTurn(Eigen::RowVector4d inputs) {
+    Scalar value;
+    Eigen::RowVector4d gradient;
+    // Unpack the inputs
+    Scalar xx = inputs[0];
+    Scalar yy = inputs[1];
+    Scalar zz = inputs[2];
+    Scalar tt = inputs[3];
+
+    // Constants
+    const Scalar pi2 = 6.28319; // 2 * π
+
+    // Precomputed terms
+    Scalar cos_pi2_tt = std::cos(pi2 * tt);
+    Scalar sin_pi2_tt = std::sin(pi2 * tt);
+    Scalar term_zz = -0.51 - 0.01 * tt + zz;
+    Scalar term_tt = -0.5 - 0.01 * (1 - tt);
+    Scalar term_tt2 = -0.25 - 0.01 * (1 - tt) - 0.51 * tt;
+
+    Scalar sqrt_inner = std::sqrt(0.0 + term_zz * term_zz +
+                                  std::pow(-0.01 + term_tt * cos_pi2_tt + yy * cos_pi2_tt +
+                                           term_tt2 * sin_pi2_tt + xx * sin_pi2_tt, 2));
+    Scalar sqrt_outer = -0.2 + sqrt_inner;
+
+    Scalar term1 = -0.01 + term_tt2 * cos_pi2_tt + xx * cos_pi2_tt -
+                   term_tt * sin_pi2_tt - yy * sin_pi2_tt;
+
+    // Compute scalar value
+    value = -0.0025 + std::pow(term1, 2) + std::pow(sqrt_outer, 2);
+
+    // Compute gradient
+    // Gradient w.r.t. xx
+    gradient[0] = 2 * cos_pi2_tt * term1 +
+                  (2 * sin_pi2_tt *
+                   (-0.01 + term_tt * cos_pi2_tt + yy * cos_pi2_tt +
+                    term_tt2 * sin_pi2_tt + xx * sin_pi2_tt) *
+                   sqrt_outer) /
+                      sqrt_inner;
+
+    // Gradient w.r.t. yy
+    gradient[1] = -2 * sin_pi2_tt * term1 +
+                  (2 * cos_pi2_tt *
+                   (-0.01 + term_tt * cos_pi2_tt + yy * cos_pi2_tt +
+                    term_tt2 * sin_pi2_tt + xx * sin_pi2_tt) *
+                   sqrt_outer) /
+                      sqrt_inner;
+
+    // Gradient w.r.t. zz
+    gradient[2] = (2 * term_zz * sqrt_outer) / sqrt_inner;
+
+    // Gradient w.r.t. tt
+    gradient[3] = 2 * (-0.5 * cos_pi2_tt - pi2 * term_tt * cos_pi2_tt - pi2 * yy * cos_pi2_tt -
+                       0.01 * sin_pi2_tt - pi2 * term_tt2 * sin_pi2_tt -
+                       pi2 * xx * sin_pi2_tt) *
+                      term1 +
+                  ((-0.02 * term_zz +
+                    2 * (-0.01 + term_tt * cos_pi2_tt + yy * cos_pi2_tt +
+                         term_tt2 * sin_pi2_tt + xx * sin_pi2_tt) *
+                        (0.01 * cos_pi2_tt + pi2 * term_tt2 * cos_pi2_tt +
+                         pi2 * xx * cos_pi2_tt - 0.5 * sin_pi2_tt -
+                         pi2 * term_tt * sin_pi2_tt - pi2 * yy * sin_pi2_tt)) *
+                   sqrt_outer) /
+                      sqrt_inner;
+    return {value, gradient};
+}
+
 #endif /* trajectory_h */
