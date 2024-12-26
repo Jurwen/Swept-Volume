@@ -57,7 +57,7 @@ int main(int argc, const char *argv[])
     ///  @return    A std::pari<Scalar, Eigen::RowVector4d> of the value and the gradients at this 4D point
     
     auto implicit_sweep = [&](Eigen::RowVector4d data){
-        return flippingDonutFullTurn(data);
+        return rotatingSpherewLift(data);
     };
     ///
     ///

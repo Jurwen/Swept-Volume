@@ -204,4 +204,71 @@ std::pair<Scalar, Eigen::RowVector4d> flippingDonutFullTurn(Eigen::RowVector4d i
     return {value, gradient};
 }
 
+std::pair<Scalar, Eigen::RowVector4d> rotatingSphere(Eigen::RowVector4d inputs) {
+    // Unpack the inputs
+    Scalar xx = inputs(0);
+    Scalar yy = inputs(1);
+    Scalar zz = inputs(2);
+    Scalar tt = inputs(3);
+    
+    // Constants
+    const Scalar pi2 = 6.28319; // 2 * π
+    const Scalar coeff = 2.51327; // π * 0.8
+    
+    // Precomputed terms
+    Scalar cos_pi2_tt = std::cos(pi2 * tt);
+    Scalar sin_pi2_tt = std::sin(pi2 * tt);
+    
+    // Compute scalar value
+    Scalar value = -0.0625 + std::pow(-0.5 + zz, 2) +
+    std::pow(-0.5 + yy + 0.2 * cos_pi2_tt, 2) +
+    std::pow(-0.5 + xx - 0.2 * sin_pi2_tt, 2);
+    
+    // Compute gradient
+    Eigen::RowVector4d gradient;
+    gradient(0) = 2 * (-0.5 + xx - 0.2 * sin_pi2_tt);               // Gradient w.r.t. xx
+    gradient(1) = 2 * (-0.5 + yy + 0.2 * cos_pi2_tt);               // Gradient w.r.t. yy
+    gradient(2) = 2 * (-0.5 + zz);                                  // Gradient w.r.t. zz
+    gradient(3) = -coeff * cos_pi2_tt * (-0.5 + xx - 0.2 * sin_pi2_tt) // Gradient w.r.t. tt
+    - coeff * (-0.5 + yy + 0.2 * cos_pi2_tt) * sin_pi2_tt;
+    
+    // Return the value and gradient as a pair
+    return {value, gradient};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> rotatingSpherewLift(Eigen::RowVector4d inputs) {
+    // Unpack the inputs
+    Scalar xx = inputs(0);
+    Scalar yy = inputs(1);
+    Scalar zz = inputs(2);
+    Scalar tt = inputs(3);
+    
+    // Constants
+    const Scalar pi3 = 9.42478;  // 3 * π
+    const Scalar coeff = 4.71239; // 1.5 * π
+    const Scalar drift = -0.15;   // Coefficient for tt in zz term
+    const Scalar zz_offset = -0.4; // Updated offset for zz
+    
+    // Precomputed terms
+    Scalar cos_pi3_tt = std::cos(pi3 * tt);
+    Scalar sin_pi3_tt = std::sin(pi3 * tt);
+    Scalar term_zz = zz_offset + zz + drift * tt;
+    
+    // Compute scalar value
+    Scalar value = -0.0225 + std::pow(term_zz, 2) +
+    std::pow(-0.5 + yy + 0.25 * cos_pi3_tt, 2) +
+    std::pow(-0.5 + xx - 0.25 * sin_pi3_tt, 2);
+    
+    // Compute gradient
+    Eigen::RowVector4d gradient;
+    gradient(0) = 2 * (-0.5 + xx - 0.25 * sin_pi3_tt);               // Gradient w.r.t. xx
+    gradient(1) = 2 * (-0.5 + yy + 0.25 * cos_pi3_tt);               // Gradient w.r.t. yy
+    gradient(2) = 2 * term_zz;                                       // Gradient w.r.t. zz
+    gradient(3) = 2 * drift * term_zz                                    // Gradient w.r.t. tt
+    - coeff * cos_pi3_tt * (-0.5 + xx - 0.25 * sin_pi3_tt)
+    - coeff * (-0.5 + yy + 0.25 * cos_pi3_tt) * sin_pi3_tt;
+    
+    // Return the value and gradient as a pair
+    return {value, gradient};
+}
 #endif /* trajectory_h */
