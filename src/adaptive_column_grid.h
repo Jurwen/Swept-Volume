@@ -26,8 +26,19 @@ public:
     int time; //int-valued hash; Default largest timestamp is 1024
     Eigen::RowVector4d coord;
     std::pair<Scalar, Eigen::RowVector4d> valGradList;
-    
+    int active_cells_num = 0;
+    bool eval;
     vertex4d() = default;
+    
+    
+    
+    bool isActive(){
+        return eval && ((active_cells_num > 0) || (valGradList.first < 0)) ;
+    }
+    
+    void printActive(){
+        std::cout << active_cells_num << " " << valGradList.first << std::endl;
+    }
 };
 
 auto compVertex = [](vertex4d v0, vertex4d v1){
@@ -126,15 +137,112 @@ public:
         }
         return coordList;
     }
+    
+    void addTetAssoc(llvm_vecsmall::SmallVector<int, 256> active_list){
+        assert(active_list.size() == timeStamp.size());
+        for (size_t i = 0; i < active_list.size(); i++){
+            if (active_list[i] > 0){
+                timeStamp[i].active_cells_num ++;
+            }
+        }
+    }
+    
+    void delTetAssoc(llvm_vecsmall::SmallVector<int, 256> active_list){
+        //std::cout << active_list.size() << " " << timeStamp.size() << std::endl;
+        assert(active_list.size() == timeStamp.size());
+        for (size_t i = 0; i < active_list.size(); i++){
+            if (active_list[i] > 0){
+                timeStamp[i].active_cells_num --;
+            }
+        }
+    }
+    
+    void printActiveTag(){
+        std::cout << "zeroX Tag: " << std::endl;
+            for (size_t j = 0; j < timeStamp.size(); j++){
+                std::cout << timeStamp[j].active_cells_num << " ";
+            }
+            std::cout << std::endl;
+    }
 };
 
 class simpCol{
 public:
     using cell5_list = llvm_vecsmall::SmallVector<std::shared_ptr<cell5>, 256>;
+    using active_tag_list = llvm_vecsmall::SmallVector<int, 256>;
+    using cell5_bool_list = llvm_vecsmall::SmallVector<bool, 256>;
     cell5_list cell5Col;
     int level = 0;// to prevent a subdivision of cell5 that's already been refined spatially
     bool covered = false;
+    cell5_bool_list zeroX_cell;
+    cell5_bool_list cell5_eval;
+    std::array<active_tag_list, 4> vertex_active_tag; // to keep track of active-ness of each 4D vertex. This needs to be dynamically updated during every subdivision.
     simpCol() = default;
+    
+    void active_tag_plus(size_t cell5It){
+        zeroX_cell[cell5It] = true;
+        std::array<int, 5> cell5Index = cell5Col[cell5It]->hash;
+        for (size_t i = 0; i < 4; i++){
+            vertex_active_tag[i][cell5Index[i]]++;
+        }
+        int lastInd = cell5Index[4];
+        vertex_active_tag[lastInd][cell5Index[lastInd] - 1]++;
+    }
+    
+    void active_tag_minus(size_t cell5It){
+        if (zeroX_cell[cell5It]){
+            std::array<int, 5> cell5Index = cell5Col[cell5It]->hash;
+            for (size_t i = 0; i < 4; i++){
+                vertex_active_tag[i][cell5Index[i]]--;
+            }
+            int lastInd = cell5Index[4];
+            vertex_active_tag[lastInd][cell5Index[lastInd] - 1]--;
+        }
+        zeroX_cell[cell5It] = false;
+    }
+    
+    void insertTimeVert(size_t ind, int inserted_ind){
+        auto front = vertex_active_tag[ind].begin();
+        vertex_active_tag[ind].insert(front + inserted_ind, 0);
+    }
+    
+    bool check_tag(){
+        int active_cell_sum = 0;
+        for (size_t i = 0; i < zeroX_cell.size(); i++){
+            if (zeroX_cell[i]){
+                active_cell_sum++;
+            }
+        }
+        int active_vert_sum = 0;
+        for (size_t i = 0; i < 4; i++){
+            for (size_t j = 0; j < vertex_active_tag[i].size(); j++){
+                active_vert_sum += vertex_active_tag[i][j];
+            }
+        }
+        return active_cell_sum * 5 == active_vert_sum;
+    }
+    
+    void printActiveTag(){
+        for (size_t j = 0; j < zeroX_cell.size(); j++){
+            std::cout << zeroX_cell[j] << " ";
+        }
+        std::cout << "zeroX cells" << std::endl;
+        for (size_t i = 0; i < 4; i++){
+            for (size_t j = 0; j < vertex_active_tag[i].size(); j++){
+                std::cout << vertex_active_tag[i][j] << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
+    
+    void printActiveTag(const size_t cell5It){
+        std::array<int, 5> cell5Index = cell5Col[cell5It]->hash;
+        for (size_t i = 0; i < 4; i++){
+            std::cout << vertex_active_tag[i][cell5Index[i]] << " ";
+        }
+        int lastInd = cell5Index[4];
+        std::cout << vertex_active_tag[lastInd][cell5Index[lastInd] - 1] << std::endl;
+    }
 };
 
 using vertExtrude = ankerl::unordered_dense::map<uint64_t, vertexCol/*std::vector<vertex4d>*/>;

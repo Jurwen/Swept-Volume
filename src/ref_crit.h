@@ -16,9 +16,11 @@ bool refineContour(
                    const std::array<vertex4d, 5> verts,
                    const double threshold,
                    bool& inside,
-                   bool& choice);
+                   bool& choice,
+                   bool& zeroX);
 
 bool refineCap(
                const std::array<vertex4d, 4> verts,
-               const double threshold);
+               const double threshold,
+               bool& zeroX);
 #endif /* ref_crit_h */

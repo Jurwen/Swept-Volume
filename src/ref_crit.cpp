@@ -217,7 +217,8 @@ bool refineContour(
                    const std::array<vertex4d, 5> verts,
                    const double threshold,
                    bool& inside,
-                   bool& choice){
+                   bool& choice,
+                   bool& zeroX){
     std::array<Eigen::RowVector4d, 5> pts;
     std::array<double, 5> vals;
     std::array<Eigen::RowVector4d, 5> grads;
@@ -239,7 +240,7 @@ bool refineContour(
     Eigen::Matrix<double, 2, 35> nPoints_eigen;
     nPoints_eigen << bezierVals, bezierGrad;
     std::array<double, 70> nPoints = parse_convex_points2d(nPoints_eigen);
-    bool zeroX = convex_hull_membership::contains<2, double>(nPoints, query_2d);
+    zeroX = convex_hull_membership::contains<2, double>(nPoints, query_2d);
     if (zeroX){
         //return true;
         auto vec1 = pts[1] - pts[0], vec2 = pts[2] - pts[0], vec3 = pts[3] - pts[0], vec4 = pts[4] - pts[0];
@@ -318,7 +319,8 @@ Eigen::Vector<double, 16> bezierDiff(const Eigen::Vector<double,20> valList)
 
 bool refineCap(
                const std::array<vertex4d, 4> verts,
-               const double threshold)
+               const double threshold,
+               bool& zeroX)
 {
     Eigen::Matrix<double, 4, 3> pts;
     std::array<Eigen::RowVector4d,4> tet_info;
@@ -342,6 +344,7 @@ bool refineCap(
     Eigen::Matrix<double, 4, 3> grads_eigen = func_info.rightCols(3);
     valList = bezierConstruct(vals, grads_eigen, vec);
     if (get_sign(valList.maxCoeff()) != get_sign(valList.minCoeff())){
+        zeroX = true;
         Eigen::Vector3d unNormF = Eigen::RowVector3d(vals(1)-vals(0), vals(2)-vals(0), vals(3)-vals(0)) * crossMatrix.transpose();
         diffList = bezierDiff(valList);
         double error = std::max(diffList.maxCoeff(), -diffList.minCoeff());
