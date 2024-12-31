@@ -3,6 +3,7 @@
 #include <optional>
 #include <CLI/CLI.hpp>
 #include <mtet/io.h>
+#include <Marching4D.h>
 #include <implicit_functions.h>
 #include <chrono>
 

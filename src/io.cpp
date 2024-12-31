@@ -83,13 +83,16 @@ bool save_4d_grid(const std::string& filename,
         std::array<int, 5> simpHash;
         std::array<size_t, 5> curSimp;
         while (i < cell5Col.size()){
+            if (!cell5Map[vs].cell5_eval[i]){
+                i++;
+                continue;
+            }
             simpNum ++;
             if (simpNum > simps_reserved){
                 simps_reserved *= 2;
                 simps.reserve(simps_reserved);
             }
             simpHash = cell5Col[i]->hash;
-            //std::cout << simpHash[0] << " " <<  simpHash[1] <<" " <<simpHash[2] <<" " <<simpHash[3] << std::endl;
             curSimp[0] = headList[0] + (size_t)simpHash[0];
             curSimp[1] = headList[1] + (size_t)simpHash[1];
             curSimp[2] = headList[2] + (size_t)simpHash[2];
@@ -98,19 +101,18 @@ bool save_4d_grid(const std::string& filename,
             simps.emplace_back(curSimp);
             i++;
         }
-        ulsimp.emplace_back(headList);
-        std::array<int, 5> llSimpHash = cell5Col[i - 1]->hash;
-        std::array<size_t, 4> llface;
-//        llface[0] = headList[0] + (size_t)llSimpHash[0];
-//        llface[1] = headList[1] + (size_t)llSimpHash[1];
-//        llface[2] = headList[2] + (size_t)llSimpHash[2];
-//        llface[3] = headList[3] + (size_t)llSimpHash[3];
-        llface[0] = curSimp[0];
-        llface[1] = curSimp[1];
-        llface[2] = curSimp[2];
-        llface[3] = curSimp[3];
-        //std::cout << curSimp[0] << " " <<  curSimp[1] <<" " <<curSimp[2] <<" " <<curSimp[3] << std::endl;
-        llsimp.emplace_back(llface);
+        if (cell5Map[vs].cell5_eval.front()){
+            ulsimp.emplace_back(headList);
+        }
+        if (cell5Map[vs].cell5_eval.back()){
+            std::array<int, 5> llSimpHash = cell5Col[cell5Col.size() - 1]->hash;
+            std::array<size_t, 4> llface;
+            llface[0] = curSimp[0];
+            llface[1] = curSimp[1];
+            llface[2] = curSimp[2];
+            llface[3] = curSimp[3];
+            llsimp.emplace_back(llface);
+        }
     });
     std::cout << grid.get_num_tets() << " " << simps.size() << std::endl;
     if (std::filesystem::exists(filename.c_str())){
