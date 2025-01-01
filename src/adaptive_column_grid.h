@@ -33,7 +33,7 @@ public:
     
     
     bool isActive(){
-        return eval && ((active_cells_num > 0) || (valGradList.first < 0)) ;
+        return eval && ((active_cells_num > 0) || (valGradList.first <= 0)) ;
     }
     
     void printActive(){

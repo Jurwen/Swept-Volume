@@ -83,9 +83,16 @@ int main(int argc, const char *argv[])
     save_mesh_json("grid.json", grid);
     /// write grid and active tets
     mtet::save_mesh("tet_grid.msh", grid);
+    
+    std::vector<std::array<double, 4>> verts;
+    std::vector<std::array<size_t, 5>> simps;
+    std::vector<std::array<size_t, 4>> ulsimp;
+    std::vector<std::array<size_t, 4>> llsimp;
+    std::vector<double> values;
 
 //    std::cout << "saving 4D grid..." << std::endl;
-    if (!save_4d_grid("grid4D.json",grid,vertexMap,cell5Map)){
+    convert_4d_grid(grid, vertexMap, cell5Map, verts, simps, ulsimp, llsimp, values);
+    if (!save_4d_grid("grid4D.json", verts, simps, ulsimp, llsimp)){
         throw std::runtime_error ("Error: save 4D grid failed.");
     }
 

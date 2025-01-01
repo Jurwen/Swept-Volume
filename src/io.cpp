@@ -38,35 +38,40 @@ bool save_mesh_json(const std::string& filename,
     return true;
 }
 
-bool save_4d_grid(const std::string& filename,
-                  mtet::MTetMesh grid,
-                  vertExtrude vertexMap,
-                  tetExtrude cell5Map){
-    std::vector<Eigen::RowVector4d> verts;
-    verts.reserve(grid.get_num_vertices() * 256);
-    std::vector<std::array<size_t, 5>> simps;
-    int simps_reserved = grid.get_num_tets() * 256;
-    std::vector<std::array<size_t, 4>> ulsimp, llsimp;
-    ulsimp.reserve(grid.get_num_tets());
-    llsimp.reserve(grid.get_num_tets());
+void convert_4d_grid(mtet::MTetMesh grid,
+                     vertExtrude vertexMap,
+                     tetExtrude cell5Map,
+                     std::vector<std::array<double, 4>> &verts,
+                     std::vector<std::array<size_t, 5>> &simps,
+                     std::vector<std::array<size_t, 4>> &ulsimp,
+                     std::vector<std::array<size_t, 4>> &llsimp,
+                     std::vector<double> &values){
+    int vert_num = grid.get_num_vertices();
+    int tet_num = grid.get_num_tets();
+    verts.reserve(vert_num * 256);
+    values.reserve(vert_num * 256);
+    int simps_reserved = tet_num * 256;
+    ulsimp.reserve(tet_num);
+    llsimp.reserve(tet_num);
     simps.reserve(simps_reserved);
     using IndexMap = ankerl::unordered_dense::map<uint64_t, size_t>;
     IndexMap ind4DMap;
     std::vector<size_t> vertHashHead;
     size_t vertHashIt = 0;
     size_t curSum = 0;
-    vertHashHead.reserve(grid.get_num_vertices());
+    vertHashHead.reserve(vert_num);
     grid.seq_foreach_vertex([&](VertexId vid, std::span<const Scalar, 3> data){
         vertexCol::vert4d_list timeStamp = vertexMap[value_of(vid)].timeStamp;
         ind4DMap[value_of(vid)] = vertHashIt;
         for (size_t i = 0; i < timeStamp.size(); i ++){
-            verts.emplace_back(timeStamp[i].coord);
+            Eigen::RowVector4d coord = timeStamp[i].coord;
+            verts.emplace_back(std::array<double, 4>{coord[0], coord[1], coord[2], coord[3]});
         }
         vertHashHead[vertHashIt] = curSum;
         vertHashIt++;
         curSum += timeStamp.size();
     });
-    std::cout << grid.get_num_vertices() << " " << verts.size() << " ";
+    std::cout << vert_num << " " << verts.size() << " ";
     int simpNum = 0;
     grid.seq_foreach_tet([&](TetId tid, [[maybe_unused]] std::span<const VertexId, 4> data) {
         std::span<VertexId, 4> vs = grid.get_tet(tid);
@@ -83,10 +88,10 @@ bool save_4d_grid(const std::string& filename,
         std::array<int, 5> simpHash;
         std::array<size_t, 5> curSimp;
         while (i < cell5Col.size()){
-            if (!cell5Map[vs].cell5_eval[i]){
-                i++;
-                continue;
-            }
+//            if (!cell5Map[vs].cell5_eval[i]){
+//                i++;
+//                continue;
+//            }
             simpNum ++;
             if (simpNum > simps_reserved){
                 simps_reserved *= 2;
@@ -114,7 +119,15 @@ bool save_4d_grid(const std::string& filename,
             llsimp.emplace_back(llface);
         }
     });
-    std::cout << grid.get_num_tets() << " " << simps.size() << std::endl;
+    std::cout << tet_num << " " << simps.size() << std::endl;
+}
+
+bool save_4d_grid(const std::string& filename,
+                  const std::vector<std::array<double, 4>> verts,
+                  const std::vector<std::array<size_t, 5>> simps,
+                  const std::vector<std::array<size_t, 4>> ulsimp,
+                  const std::vector<std::array<size_t, 4>> llsimp)
+{
     if (std::filesystem::exists(filename.c_str())){
         std::filesystem::remove(filename.c_str());
     }

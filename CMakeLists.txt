@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.15)
 
 project(swept_volume LANGUAGES CXX C)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 include(cli11)
 include(Eigen3)
@@ -32,7 +35,7 @@ target_link_libraries(adaptive_column_grid
 
 add_executable(general_sweep "app/general_sweep")
 
-target_compile_features(general_sweep PRIVATE cxx_std_20)
+target_compile_features(general_sweep PRIVATE cxx_std_17)
 target_include_directories(general_sweep PUBLIC ${CMAKE_CURRENT_LIST_DIR}/src)
 target_link_libraries(general_sweep PRIVATE
     adaptive_column_grid
