@@ -210,6 +210,47 @@ std::array<double, 70> parse_convex_points2d(const Eigen::Matrix<double, 2, 35> 
     return transposed;
 }
 
+bool outHullClip2D(Eigen::Matrix<double, 2, 35> pts){
+    const double eps = 0.0000001;
+    bool r1, r2;
+    double t;
+    auto perp = [](Eigen::Vector2d data){
+        return Eigen::Vector2d{-data[1], data[0]};
+    };
+    std::array<Eigen::Vector2d, 2> range = {-perp(pts.col(0)), perp(pts.col(0))};
+    for (size_t i = 1; i < 35; i++){
+        t = range[0].dot(pts.col(i));
+        if (t > eps){
+            r1 = true;
+        }else if (t < -eps){
+            r1 = false;
+        }else if (perp(range[0]).dot(pts.col(i)) > 0){
+            r1 = true;
+        }else{
+            return false;
+        }
+        t = range[1].dot(pts.col(i));
+        if (t > eps){
+            r2 = true;
+        }else if (t < -eps){
+            r2 = false;
+        }else if (perp(range[0]).dot(pts.col(i)) < 0){
+            r2 = true;
+        }else{
+            return false;
+        }
+        
+        if (!r1 && !r2){
+            return false;
+        }else if (!r1){
+            range[0] = -perp(pts.col(i));
+        }else if (!r2){
+            range[1] = perp(pts.col(i));
+        }
+    }
+    return true;
+}
+
 std::array<int, 16> topFIndices = {0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 20, 21, 23, 26};
 std::array<int, 16> botFIndices = {5, 6, 7, 9, 10, 11, 13, 14, 15, 17, 18, 19, 26, 27, 28, 29};
 
@@ -217,7 +258,10 @@ bool refineContour(
                    const std::array<vertex4d, 5> verts,
                    const double threshold,
                    bool& inside,
-                   bool& choice){
+                   bool& choice,
+                   std::array<double, timer_amount>& profileTimer){
+//    Timer ref_crit_timer(ref_crit, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
+//    Timer zeroX_crit_one_timer(zeroX_crit_one, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
     std::array<Eigen::RowVector4d, 5> pts;
     std::array<double, 5> vals;
     std::array<Eigen::RowVector4d, 5> grads;
@@ -236,10 +280,15 @@ bool refineContour(
     if (get_sign(bezierGrad.maxCoeff()) == get_sign(bezierGrad.minCoeff())){
         return false;
     }
+//    zeroX_crit_one_timer.Stop();
+//    Timer zeroX_crit_timer(zeroX_crit_two, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
     Eigen::Matrix<double, 2, 35> nPoints_eigen;
     nPoints_eigen << bezierVals, bezierGrad;
     std::array<double, 70> nPoints = parse_convex_points2d(nPoints_eigen);
-    bool zeroX = convex_hull_membership::contains<2, double>(nPoints, query_2d);
+//    bool zeroX = convex_hull_membership::contains<2, double>(nPoints, query_2d);
+    bool zeroX = !outHullClip2D(nPoints_eigen);
+//    zeroX_crit_timer.Stop();
+//    Timer distance_crit_timer(distance_crit, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
     if (zeroX){
         //return true;
         auto vec1 = pts[1] - pts[0], vec2 = pts[2] - pts[0], vec3 = pts[3] - pts[0], vec4 = pts[4] - pts[0];
@@ -273,6 +322,8 @@ bool refineContour(
             return true;
         }
     }
+//    distance_crit_timer.Stop();
+//    ref_crit_timer.Stop();
     return false;
 }
 
@@ -318,7 +369,8 @@ Eigen::Vector<double, 16> bezierDiff(const Eigen::Vector<double,20> valList)
 
 bool refineCap(
                const std::array<vertex4d, 4> verts,
-               const double threshold)
+               const double threshold,
+               bool& zeroX)
 {
     Eigen::Matrix<double, 4, 3> pts;
     std::array<Eigen::RowVector4d,4> tet_info;
@@ -342,6 +394,7 @@ bool refineCap(
     Eigen::Matrix<double, 4, 3> grads_eigen = func_info.rightCols(3);
     valList = bezierConstruct(vals, grads_eigen, vec);
     if (get_sign(valList.maxCoeff()) != get_sign(valList.minCoeff())){
+        zeroX = true;
         Eigen::Vector3d unNormF = Eigen::RowVector3d(vals(1)-vals(0), vals(2)-vals(0), vals(3)-vals(0)) * crossMatrix.transpose();
         diffList = bezierDiff(valList);
         double error = std::max(diffList.maxCoeff(), -diffList.minCoeff());

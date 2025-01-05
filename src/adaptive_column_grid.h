@@ -21,9 +21,15 @@
 
 using namespace mtet;
 
+/// A 4D vertex, each is equipped with the following parameters:
+/// @param time: an integer-valued time stamp. The default max of this value is 1024. The fourth coordinate of this vertex is a floating point of this value divided by 1024.
+/// @param coord: The 4D coordinate of this vertex
+/// @param valGradList: The value and gradients of this vertex given by the implicit function that represents the sweeping object.
+/// @param active_cells_num: the number of 4D simplex uses this vertex
+/// @param eval: If this vertex is evaluated
 class vertex4d{
 public:
-    int time; //int-valued hash; Default largest timestamp is 1024
+    int time; //int-valued hash; Default largest vert4dList is 1024
     Eigen::RowVector4d coord;
     std::pair<Scalar, Eigen::RowVector4d> valGradList;
     
@@ -33,6 +39,12 @@ public:
 auto compVertex = [](vertex4d v0, vertex4d v1){
     return v0.time < v1.time;};
 
+/// A 4D simplex(5-cell) . Each is equipped iwth the following parameters:
+/// @param hash: The index of the 5 vertices. This indexing system has the following structured 5-cell representation:
+/// First four indices are the time stamp indices for each of the vertices {ti, tj, tk, tl}
+/// The 5th index shows which vertex is being extruded 0/1/2/3 (The time stamp contains the high index for this vertex, i.e., need to retrieve the last vertex by finding the lower end of the extruded coordinate by the following form: hash[hash[4]] - 1)
+/// @param time_list: The integer time at each index
+/// @param level: The number of times this simplex is being visited in temporal subdivision. This needs to be aligned with the `level` of its simplex column in order to be subdivided
 class cell5{
 public:
     std::array<int, 5> hash;
@@ -41,10 +53,12 @@ public:
     
     cell5() = default;
     
+    /// To obtain the time stamp of the top vertex of the extruded edge
     int top(){
         return time_list[hash[4]];
     }
     
+    /// To obatin the time stamp at the given index i. For the index being extruded, it will pick the bottom time stamp.
     int bot(int i){
         if (i == hash[4]){
             return time_list[4];
@@ -53,6 +67,10 @@ public:
         }
     }
     
+    /// Build a simplex that will be inserted to the simplex column after the temporal edge subdivision.
+    /// @param[in] time: The inserted time during the temporal split
+    /// @param[in] ind: The index of the inserted time sample at this column of vertices
+    /// @return: A shared pointer of the new 5-cell/simplex
     std::shared_ptr<cell5> rebuildCell5(const int time, const int ind){
         cell5 simp;
 
@@ -90,44 +108,48 @@ public:
     }
 };
 
+/// A column of 4D vertices equipped with the following members:
+/// @param vert4dList: a list of 4D vertex in this column, each follows the data structure of `vertex4d`
+/// @param timeExist: A hashed map to check if a time stamp exists in this column already
+/// @param vertTetAssoc: A map from a vertex to a list of 3D tet indices
 class vertexCol{
 public:
     using vert4d_list = llvm_vecsmall::SmallVector<vertex4d, 256>;
     using time_list = llvm_vecsmall::SmallVector<int, 256>;
-    using coord_list = llvm_vecsmall::SmallVector<Eigen::RowVector4d, 256>;
     using vertToSimp = llvm_vecsmall::SmallVector<mtet::TetId, 256>;
     
-    vert4d_list timeStamp;
+    vert4d_list vert4dList;
     ankerl::unordered_dense::map<int, bool> timeExist;
     vertToSimp vertTetAssoc;
     
     vertexCol() = default;
-    
+
+    /// Given a new 4D vertex, insert it to this column
+    /// @param[in] newVert: A new 4D vertex
+    /// @return The inserted index
     int insertTime(vertex4d& newVert) {
         // Find the position to insert using binary search
-        auto it = std::lower_bound(timeStamp.begin(), timeStamp.end(), newVert, compVertex);
-        int ind = std::distance(timeStamp.begin(), it);
-        timeStamp.insert(it, newVert);
+        auto it = std::lower_bound(vert4dList.begin(), vert4dList.end(), newVert, compVertex);
+        int ind = std::distance(vert4dList.begin(), it);
+        vert4dList.insert(it, newVert);
         return ind;
     }
     
+    /// find a list of time stamps of the 4D vertices in this column
+    /// @return a list of integer-valued time stamp
     time_list getTimeList(){
-        time_list timeList(timeStamp.size());
-        for (size_t i = 0; i < timeStamp.size(); i++){
-            timeList[i] = timeStamp[i].time;
+        time_list timeList(vert4dList.size());
+        for (size_t i = 0; i < vert4dList.size(); i++){
+            timeList[i] = vert4dList[i].time;
         }
         return timeList;
     }
-    
-    coord_list getCoordList(){
-        coord_list coordList(timeStamp.size());
-        for (size_t i = 0; i < timeStamp.size(); i++){
-            coordList[i] = timeStamp[i].coord;
-        }
-        return coordList;
-    }
 };
 
+/// A column of 4D simplices/5-cells equipped with the following members:
+/// @param cell5_list: A list of shared pointers of 4D sipmlics, each follows the data structure of `cell5`
+/// @param level: The level of this 4D column. The level increases with the number of times a temporal subdivision happened within the column. This keeps track of subdivisions of edges from a still valid simplex.
+/// @param covered: Whether or not this column is covered; Covered means that there is a lifetd 3D tetrahedra face has all its bezier orndates below 0.
 class simpCol{
 public:
     using cell5_list = llvm_vecsmall::SmallVector<std::shared_ptr<cell5>, 256>;
@@ -137,6 +159,7 @@ public:
     simpCol() = default;
 };
 
+/// A mount of a list of 4D vertex column to the 3D vertex
 using vertExtrude = ankerl::unordered_dense::map<uint64_t, vertexCol/*std::vector<vertex4d>*/>;
 
 /// First, hash four tet vertices into a `uint64_t`
@@ -163,6 +186,7 @@ struct TetEqual
     }
 };
 
+/// A mount of a list of 4D simplices column
 using tetExtrude = ankerl::unordered_dense::map<std::span<mtet::VertexId, 4>, simpCol, TetHash, TetEqual>;
 
 #endif /* adaptive_column_grid_h */

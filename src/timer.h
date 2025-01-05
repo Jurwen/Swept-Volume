@@ -12,18 +12,29 @@
 #include <array>
 #include <string>
 ///The current amount in time profiling.
-const int timer_amount = 2;
+const int timer_amount = 8;
 
 /// The labels for timing stats.
-/// an array of 10 timings: {total time getting the multiple indices, total time,time spent on single function, time spent on double functions, time spent on triple functions time spent on double functions' zero crossing test, time spent on three functions' zero crossing test, total subdivision time, total evaluation time,total splitting time}
 const std::array<std::string, timer_amount> time_label = {"temporal splits: ",
     "spatial splits: ",
+    "create vertex column",
+    "add connectivity",
+    "extrude tet column",
+    "evaluate tet column",
+    "push queue",
+    "meshing"
 };
 
 /// the enum for the timing labels.
 enum timeProfileName{
     time_splits,
-    space_splits
+    space_splits,
+    init_vert_col,
+    add_connectivity,
+    extrude_tet_col,
+    eval_tet_col,
+    pushQ,
+    meshing
 };
 
 /// add the timer recorded to the profiling timer.
@@ -61,6 +72,24 @@ public:
             case space_splits:
                 m_timeProfile[1] += ms;
                 break;
+            case init_vert_col:
+                m_timeProfile[2] += ms;
+                break;
+            case add_connectivity:
+                m_timeProfile[3] += ms;
+                break;
+            case extrude_tet_col:
+                m_timeProfile[4] += ms;
+                break;
+            case eval_tet_col:
+                m_timeProfile[5] += ms;
+                break;
+            case pushQ:
+                m_timeProfile[6] += ms;
+                break;
+            case meshing:
+                m_timeProfile[7] += ms;
+                break;
             default:
                 throw std::runtime_error("no matching time profile identifier");
         }
@@ -71,7 +100,7 @@ public:
 private:
     timeProfileName m_Name;
     Fn m_Func;
-    std::array<double, timer_amount> m_timeProfile = {0,0};
+    std::array<double, timer_amount> m_timeProfile = {0,0,0,0,0,0,0};
     std::chrono::time_point<std::chrono::high_resolution_clock> starterTime;
 };
 
