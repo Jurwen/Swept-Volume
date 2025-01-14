@@ -7,6 +7,8 @@
 
 #include "col_gridgen.h"
 
+namespace dr = drjit; // For nanothread
+
 /// Sample the list of 5-cells based on the base tetrahedra and 4 lists of time samples at its vertices. The extrusion/sampling is based on lowest time stamp, the second lowest time stamp, and the vertex id comparing the four incremental time stamps at each vertex.
 /// @param[in] grid: the base tetrahedra grid in `mtet` structure
 /// @param[in] tid: the tetrahedra id that is going to be extruded
@@ -58,7 +60,7 @@ simpCol::cell5_list sampleCol(std::span<mtet::VertexId, 4> vs, vertExtrude &vert
                 simp.time_list = {ti[i - 1].time, tj[j - 1].time, tk[k - 1].time, tl[l - 1].time, tl[l-2].time};
                 break;
         }
-        cell5Col.emplace_back(std::make_shared<cell5>(simp));
+        cell5Col.emplace_back(simp);
     }
     return cell5Col;
 }
@@ -69,32 +71,27 @@ simpCol::cell5_list sampleCol(std::span<mtet::VertexId, 4> vs, vertExtrude &vert
 /// @param[in] time: The integer-valued time of the newly-inserted 4D vertex after the temporal edge split
 /// @param[in] quad: The indices of four 3D vertices used by this simplex column as the base
 /// @param[in] ind: The index of the new-inserted 4d vertex at its column
-llvm_vecsmall::SmallVector<size_t, 256> resampleTimeCol(simpCol::cell5_list& simpInfo, const int level, const int time, const std::array<uint64_t, 4> quad, const int ind){
+llvm_vecsmall::SmallVector<size_t, 256> resampleTimeCol(simpCol::cell5_list& simpInfo, const int time, const std::array<uint64_t, 4> quad, const int ind){
     llvm_vecsmall::SmallVector<size_t, 256> refineList;
     refineList.reserve(simpInfo.size());
     std::pair<int, uint64_t> insertTime = std::pair<int, uint64_t>{time, quad[ind]};
     size_t i = 0;
-    while (i < simpInfo.size() && std::pair<int, uint64_t>{simpInfo[i]->top(), quad[simpInfo[i]->hash[4]]} < insertTime){
-        simpInfo[i]->level = level;
+    while (i < simpInfo.size() && std::pair<int, uint64_t>{simpInfo[i].top(), quad[simpInfo[i].hash[4]]} < insertTime){
         i++;
     }
-    simpInfo.insert(simpInfo.begin() + i, simpInfo[i]->rebuildCell5(time, ind));
-    simpInfo[i]->level = level;
+    simpInfo.insert(simpInfo.begin() + i, simpInfo[i].rebuildCell5(time, ind));
     refineList.emplace_back(i);
     i ++;
     while (i < simpInfo.size()){
-        if( simpInfo[i]->bot(ind) < time){
-            cell5 prevCell = simpInfo[i]->copyCell5();
-            simpInfo[i] = std::make_shared<cell5>(prevCell);
-            if (simpInfo[i]->hash[4] == ind){
-                simpInfo[i]->time_list[4] = time;
+        if( simpInfo[i].bot(ind) < time){
+            if (simpInfo[i].hash[4] == ind){
+                simpInfo[i].time_list[4] = time;
             }else{
-                simpInfo[i]->time_list[ind] = time;
+                simpInfo[i].time_list[ind] = time;
             }
             refineList.emplace_back(i);
         }
-        simpInfo[i]->hash[ind] ++;
-        simpInfo[i]->level = level;
+        simpInfo[i].hash[ind] ++;
         i++;
     }
     return refineList;
@@ -140,19 +137,19 @@ void init5CGrid(const int timeDep, mtet::MTetMesh grid, const std::function<std:
     });
 }
 
-bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude &cell5Map, const std::function<std::pair<Scalar, Eigen::RowVector4d>(Eigen::RowVector4d)> func, const double threshold, const int max_splits, std::array<double, timer_amount>& profileTimer){
+bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude_test &insideMap, tetExtrude &cell5Map, const std::function<std::pair<Scalar, Eigen::RowVector4d>(Eigen::RowVector4d)> func, const double threshold, const int max_splits, std::array<double, timer_amount>& profileTimer){
     init5CGrid(3, grid, func, 1024, vertexMap, cell5Map);
     ///
     /// Initiate queue: timeQ and spaceQ
-    auto compTime = [](std::tuple<mtet::Scalar, mtet::TetId, mtet::VertexId, int, std::shared_ptr<cell5>> timeSub0,
-                       std::tuple<mtet::Scalar, mtet::TetId, mtet::VertexId, int, std::shared_ptr<cell5>> timeSub1)
+    auto compTime = [](std::tuple<mtet::Scalar, mtet::TetId, mtet::VertexId, int> timeSub0,
+                       std::tuple<mtet::Scalar, mtet::TetId, mtet::VertexId, int> timeSub1)
     { return std::get<0>(timeSub0) <= std::get<0>(timeSub1); };
-    std::vector<std::tuple<mtet::Scalar, mtet::TetId, mtet::VertexId, int, std::shared_ptr<cell5>>> timeQ;
+    std::vector<std::tuple<mtet::Scalar, mtet::TetId, mtet::VertexId, int>> timeQ;
     
-    auto compSpace = [](std::tuple<mtet::Scalar, mtet::TetId, mtet::EdgeId, std::shared_ptr<cell5>> spaceSub0,
-                       std::tuple<mtet::Scalar, mtet::TetId, mtet::EdgeId, std::shared_ptr<cell5>> spaceSub1)
+    auto compSpace = [](std::tuple<mtet::Scalar, mtet::TetId, mtet::EdgeId> spaceSub0,
+                        std::tuple<mtet::Scalar, mtet::TetId, mtet::EdgeId> spaceSub1)
     { return std::get<0>(spaceSub0) <= std::get<0>(spaceSub1); };
-    std::vector<std::tuple<mtet::Scalar, mtet::TetId, mtet::EdgeId, std::shared_ptr<cell5>>> spaceQ;
+    std::vector<std::tuple<mtet::Scalar, mtet::TetId, mtet::EdgeId>> spaceQ;
     
     
     auto queryCell5 = [&](cell5 simp, std::array<vertexCol, 4> vs){
@@ -161,192 +158,226 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude &cell5M
     int splits = 0, temporal_splits = 0, spatial_splits = 0;
     ///
     /// Push Queue Function:
-    cell5 always_sub;
-    auto always_sub_ptr = std::make_shared<cell5>(always_sub);
-    
     auto push_one_col = [&](mtet::TetId tid)
-        {
-            std::span<VertexId, 4> vs = grid.get_tet(tid);
-            simpCol colInfo = cell5Map[vs];
-            simpCol::cell5_list cell5Col = colInfo.cell5Col;
-            std::array<vertexCol, 4> baseVerts;
-            for (size_t i = 0; i < 4; i++){
-                baseVerts[i] = vertexMap[value_of(vs[i])];
-            }
-            /// Compute longest spatial edge
-            mtet::EdgeId longest_edge;
-            mtet::Scalar longest_edge_length = 0;
-            bool baseSub = false;
-            grid.foreach_edge_in_tet(tid, [&](mtet::EdgeId eid, mtet::VertexId v0, mtet::VertexId v1)
-                                     {
-                auto p0 = grid.get_vertex(v0);
-                auto p1 = grid.get_vertex(v1);
-                mtet::Scalar l = (p0[0] - p1[0]) * (p0[0] - p1[0]) + (p0[1] - p1[1]) * (p0[1] - p1[1]) +
-                (p0[2] - p1[2]) * (p0[2] - p1[2]);
-                if (l > longest_edge_length) {
-                    longest_edge_length = l;
-                    longest_edge = eid;
-                } });
-            std::vector<int> timeLenList(cell5Col.size());
-            std::vector<mtet::Scalar> timeList(cell5Col.size());
-            std::vector<size_t> indList(cell5Col.size());
-            std::vector<bool> subList(cell5Col.size(), false);
-            std::vector<bool> choiceList(cell5Col.size());
-            for (size_t cell5It = 0; cell5It < cell5Col.size(); cell5It++){
-                auto simp = cell5Col[cell5It];
-                std::array<int, 5> cell5Index = simp->hash;
-                int lastInd = cell5Index[4];
-                std::array<vertex4d, 5> verts;
-                verts[0] = baseVerts[lastInd].vert4dList[cell5Index[lastInd]];
-                size_t ind = 0;
-                for (size_t i = 0; i < 4; i++){
-                    if (i != lastInd){
-                        ind ++;
-                        verts[ind] = baseVerts[i].vert4dList[cell5Index[i]];
+    {
+        std::span<VertexId, 4> vs = grid.get_tet(tid);
+        simpCol colInfo = cell5Map[vs];
+        simpCol::cell5_list cell5Col = colInfo.cell5Col;
+        std::array<vertexCol, 4> baseVerts;
+        for (size_t i = 0; i < 4; i++){
+            baseVerts[i] = vertexMap[value_of(vs[i])];
+        }
+        /// Compute longest spatial edge
+        mtet::EdgeId longest_edge;
+        mtet::Scalar longest_edge_length = 0;
+        bool baseSub = false;
+        grid.foreach_edge_in_tet(tid, [&](mtet::EdgeId eid, mtet::VertexId v0, mtet::VertexId v1)
+                                 {
+            auto p0 = grid.get_vertex(v0);
+            auto p1 = grid.get_vertex(v1);
+            mtet::Scalar l = (p0[0] - p1[0]) * (p0[0] - p1[0]) + (p0[1] - p1[1]) * (p0[1] - p1[1]) +
+            (p0[2] - p1[2]) * (p0[2] - p1[2]);
+            if (l > longest_edge_length) {
+                longest_edge_length = l;
+                longest_edge = eid;
+            } });
+        std::vector<int> timeLenList(cell5Col.size());
+        std::vector<mtet::Scalar> timeList(cell5Col.size());
+        std::vector<size_t> indList(cell5Col.size());
+        std::vector<bool> subList(cell5Col.size(), false);
+        std::vector<bool> choiceList(cell5Col.size());
+        Timer push_col(eval_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
+        dr::parallel_for(
+                         dr::blocked_range<size_t>(0, cell5Col.size(), cell5Col.size() / 12),
+                         [&](dr::blocked_range<size_t> range) {
+                             for (auto cell5It : range) {
+                                 auto simp = cell5Col[cell5It];
+                                 std::array<int, 5> cell5Index = simp.hash;
+                                 int lastInd = cell5Index[4];
+                                 std::array<vertex4d, 5> verts;
+                                 verts[0] = baseVerts[lastInd].vert4dList[cell5Index[lastInd]];
+                                 size_t ind = 0;
+                                 for (size_t i = 0; i < 4; i++){
+                                     if (i != lastInd){
+                                         ind ++;
+                                         verts[ind] = baseVerts[i].vert4dList[cell5Index[i]];
+                                     }
+                                 }
+                                 verts[4] = baseVerts[lastInd].vert4dList[cell5Index[lastInd] - 1];
+                                 bool inside = false;
+                                 bool choice = false;
+                                 bool ret = refineContour(verts, threshold, inside, choice, profileTimer, spatial_splits);
+                                 if (inside) {
+                                     cell5Map[vs].covered = true;
+                                     push_col.Stop();
+                                     return;
+                                 }
+                                 if (ret) {
+                                     subList[cell5It] = true;
+                                     timeLenList[cell5It] = verts[0].time - verts[4].time;
+                                     timeList[cell5It] = (verts[0].time + verts[4].time) / 2;
+                                     indList[cell5It] = lastInd;
+                                     choiceList[cell5It] = choice;
+                                 }
+                             }
+                         });
+        push_col.Stop();
+        //Timer push_col(eval_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
+//        for (size_t cell5It = 0; cell5It < cell5Col.size(); cell5It++){
+//            auto simp = cell5Col[cell5It];
+//            std::array<int, 5> cell5Index = simp.hash;
+//            int lastInd = cell5Index[4];
+//            std::array<vertex4d, 5> verts;
+//            verts[0] = baseVerts[lastInd].vert4dList[cell5Index[lastInd]];
+//            size_t ind = 0;
+//            for (size_t i = 0; i < 4; i++){
+//                if (i != lastInd){
+//                    ind ++;
+//                    verts[ind] = baseVerts[i].vert4dList[cell5Index[i]];
+//                }
+//            }
+//            verts[4] = baseVerts[lastInd].vert4dList[cell5Index[lastInd] - 1];
+//            bool inside = false;
+//            bool choice = false;
+////            Timer ref_crit_timer(ref_crit, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
+//            bool ret = refineContour(verts, threshold, inside, choice, profileTimer, spatial_splits);
+////            ref_crit_timer.Stop();
+//            if (inside) {
+//                cell5Map[vs].covered = true;
+//                //push_col.Stop();
+//                return;
+//            }
+//            if (ret) {
+//                subList[cell5It] = true;
+//                timeLenList[cell5It] = verts[0].time - verts[4].time;
+//                timeList[cell5It] = (verts[0].time + verts[4].time) / 2;
+//                indList[cell5It] = lastInd;
+//                choiceList[cell5It] = choice;
+//            }
+//        }
+        //push_col.Stop();
+        for (size_t cell5It = 0; cell5It < cell5Col.size(); cell5It++){
+            if (subList[cell5It]){
+                if (choiceList[cell5It]){
+                    if (timeLenList[cell5It] > 4){
+                        timeQ.emplace_back(timeLenList[cell5It], tid, vs[indList[cell5It]], timeList[cell5It]);
+                        std::push_heap(timeQ.begin(), timeQ.end(), compTime);
                     }
-                }
-                verts[4] = baseVerts[lastInd].vert4dList[cell5Index[lastInd] - 1];
-                bool inside = false;
-                bool choice = false;
-                bool ret = refineContour(verts, threshold, inside, choice, profileTimer);
-                if (inside) {
-                    cell5Map[vs].covered = true;
-                    return;
-                }
-                if (ret) {
-                    subList[cell5It] = true;
-                    timeLenList[cell5It] = verts[0].time - verts[4].time;
-                    timeList[cell5It] = (verts[0].time + verts[4].time) / 2;
-                    indList[cell5It] = lastInd;
-                    choiceList[cell5It] = choice;
-                }
-            }
-            Timer push_queue_timer(pushQ, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
-            for (size_t cell5It = 0; cell5It < cell5Col.size(); cell5It++){
-                if (subList[cell5It]){
-                    if (choiceList[cell5It]){
-                        if (timeLenList[cell5It] > 4){
-                            timeQ.emplace_back(timeLenList[cell5It], tid, vs[indList[cell5It]], timeList[cell5It],
-                                               cell5Col[cell5It]);//colInfo.level);
-                            std::push_heap(timeQ.begin(), timeQ.end(), compTime);
-                        }
-                    }else{
-                        if (!baseSub){
-                            spaceQ.emplace_back(longest_edge_length, tid, longest_edge, cell5Col[cell5It]);
-                            std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
-                            baseSub = true;
-                        }
+                }else{
+                    if (!baseSub){
+                        spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
+                        std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
+                        baseSub = true;
                     }
-                    
-                }
-            }
-            push_queue_timer.Stop();
-            if (!baseSub){
-                std::array<vertex4d, 4> verts;
-                for (size_t i = 0; i < 4; i++){
-                    verts[i] = baseVerts[i].vert4dList.front();
-                }
-                bool zeroX = false;
-                bool ret = refineCap(verts, threshold/2, zeroX);
-                if (ret){
-                    spaceQ.emplace_back(longest_edge_length, tid, longest_edge, always_sub_ptr);
-                    std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
-                    baseSub = true;
-                }
-            }
-            if (!baseSub){
-                std::array<vertex4d, 4> verts;
-                for (size_t i = 0; i < 4; i++){
-                    verts[i] = baseVerts[i].vert4dList.back();
-                }
-                bool zeroX = false;
-                bool ret = refineCap(verts, threshold/2, zeroX);
-                if (ret){
-                    spaceQ.emplace_back(longest_edge_length, tid, longest_edge, always_sub_ptr);
-                    std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
-                    baseSub = true;
-                }
-            }
-        };
-        
-        auto push_simps = [&](mtet::TetId tid, llvm_vecsmall::SmallVector<size_t, 256> refineList)
-        {
-            std::span<VertexId, 4> vs = grid.get_tet(tid);
-            simpCol colInfo = cell5Map[vs];
-            simpCol::cell5_list cell5Col = colInfo.cell5Col;
-            std::array<vertexCol, 4> baseVerts;
-            for (size_t i = 0; i < 4; i++){
-                baseVerts[i] = vertexMap[value_of(vs[i])];
-            }
-            /// Compute longest spatial edge
-            mtet::EdgeId longest_edge;
-            mtet::Scalar longest_edge_length = 0;
-            bool baseSub = false;
-            grid.foreach_edge_in_tet(tid, [&](mtet::EdgeId eid, mtet::VertexId v0, mtet::VertexId v1)
-                                     {
-                auto p0 = grid.get_vertex(v0);
-                auto p1 = grid.get_vertex(v1);
-                mtet::Scalar l = (p0[0] - p1[0]) * (p0[0] - p1[0]) + (p0[1] - p1[1]) * (p0[1] - p1[1]) +
-                (p0[2] - p1[2]) * (p0[2] - p1[2]);
-                if (l > longest_edge_length) {
-                    longest_edge_length = l;
-                    longest_edge = eid;
-                } });
-            std::vector<int> timeLenList(refineList.size());
-            std::vector<mtet::Scalar> timeList(refineList.size());
-            std::vector<size_t> indList(refineList.size());
-            std::vector<bool> subList(refineList.size(), false);
-            std::vector<bool> choiceList(refineList.size());
-            for (size_t it = 0; it < refineList.size(); it++){
-                size_t cell5It = refineList[it];
-                auto simp = cell5Col[cell5It];
-                std::array<int, 5> cell5Index = simp->hash;
-                int lastInd = cell5Index[4];
-                std::array<vertex4d, 5> verts;
-                verts[0] = baseVerts[lastInd].vert4dList[cell5Index[lastInd]];
-                size_t ind = 0;
-                for (size_t i = 0; i < 4; i++){
-                    if (i != lastInd){
-                        ind ++;
-                        verts[ind] = baseVerts[i].vert4dList[cell5Index[i]];
-                    }
-                }
-                verts[4] = baseVerts[lastInd].vert4dList[cell5Index[lastInd] - 1];
-                bool inside = false;
-                bool choice = false;
-                bool ret = refineContour(verts, threshold, inside, choice, profileTimer);
-                if (inside) {
-                    cell5Map[vs].covered = true;
-                    return;
-                }
-                if (ret) {
-                    subList[it] = true;
-                    timeLenList[it] = verts[0].time - verts[4].time;
-                    timeList[it] = (verts[0].time + verts[4].time) / 2;
-                    indList[it] = lastInd;
-                    choiceList[it] = choice;
                 }
                 
             }
-            for (size_t it = 0; it < refineList.size(); it++){
-                size_t cell5It = refineList[it];
-                if (subList[it]){
-                    if (choiceList[it]){
-                        if (timeLenList[it] > 4){
-                            timeQ.emplace_back(timeLenList[it], tid, vs[indList[it]], timeList[it],
-                                               cell5Col[cell5It]);//colInfo.level);
-                            std::push_heap(timeQ.begin(), timeQ.end(), compTime);
-                        }
-                    }else{
-                        if (!baseSub){
-                            spaceQ.emplace_back(longest_edge_length, tid, longest_edge, cell5Col[cell5It]);
-                            std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
-                            baseSub = true;
-                        }
+        }
+        if (!baseSub){
+            std::array<vertex4d, 4> verts;
+            for (size_t i = 0; i < 4; i++){
+                verts[i] = baseVerts[i].vert4dList.front();
+            }
+            bool zeroX = false;
+            bool ret = refineCap(verts, threshold/2, zeroX);
+            if (ret){
+                spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
+                std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
+                baseSub = true;
+            }
+        }
+        if (!baseSub){
+            std::array<vertex4d, 4> verts;
+            for (size_t i = 0; i < 4; i++){
+                verts[i] = baseVerts[i].vert4dList.back();
+            }
+            bool zeroX = false;
+            bool ret = refineCap(verts, threshold/2, zeroX);
+            if (ret){
+                spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
+                std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
+                baseSub = true;
+            }
+        }
+    };
+    
+    auto push_simps = [&](mtet::TetId tid, llvm_vecsmall::SmallVector<size_t, 256> refineList)
+    {
+        std::span<VertexId, 4> vs = grid.get_tet(tid);
+        simpCol colInfo = cell5Map[vs];
+        simpCol::cell5_list cell5Col = colInfo.cell5Col;
+        std::array<vertexCol, 4> baseVerts;
+        for (size_t i = 0; i < 4; i++){
+            baseVerts[i] = vertexMap[value_of(vs[i])];
+        }
+        /// Compute longest spatial edge
+        mtet::EdgeId longest_edge;
+        mtet::Scalar longest_edge_length = 0;
+        bool baseSub = false;
+        grid.foreach_edge_in_tet(tid, [&](mtet::EdgeId eid, mtet::VertexId v0, mtet::VertexId v1)
+                                 {
+            auto p0 = grid.get_vertex(v0);
+            auto p1 = grid.get_vertex(v1);
+            mtet::Scalar l = (p0[0] - p1[0]) * (p0[0] - p1[0]) + (p0[1] - p1[1]) * (p0[1] - p1[1]) +
+            (p0[2] - p1[2]) * (p0[2] - p1[2]);
+            if (l > longest_edge_length) {
+                longest_edge_length = l;
+                longest_edge = eid;
+            } });
+        std::vector<int> timeLenList(refineList.size());
+        std::vector<mtet::Scalar> timeList(refineList.size());
+        std::vector<size_t> indList(refineList.size());
+        std::vector<bool> subList(refineList.size(), false);
+        std::vector<bool> choiceList(refineList.size());
+        for (size_t it = 0; it < refineList.size(); it++){
+            size_t cell5It = refineList[it];
+            auto simp = cell5Col[cell5It];
+            std::array<int, 5> cell5Index = simp.hash;
+            int lastInd = cell5Index[4];
+            std::array<vertex4d, 5> verts;
+            verts[0] = baseVerts[lastInd].vert4dList[cell5Index[lastInd]];
+            size_t ind = 0;
+            for (size_t i = 0; i < 4; i++){
+                if (i != lastInd){
+                    ind ++;
+                    verts[ind] = baseVerts[i].vert4dList[cell5Index[i]];
+                }
+            }
+            verts[4] = baseVerts[lastInd].vert4dList[cell5Index[lastInd] - 1];
+            bool inside = false;
+            bool choice = false;
+            bool ret = refineContour(verts, threshold, inside, choice, profileTimer, spatial_splits);
+            if (inside) {
+                cell5Map[vs].covered = true;
+                return;
+            }
+            if (ret) {
+                subList[it] = true;
+                timeLenList[it] = verts[0].time - verts[4].time;
+                timeList[it] = (verts[0].time + verts[4].time) / 2;
+                indList[it] = lastInd;
+                choiceList[it] = choice;
+            }
+            
+        }
+        for (size_t it = 0; it < refineList.size(); it++){
+            size_t cell5It = refineList[it];
+            if (subList[it]){
+                if (choiceList[it]){
+                    if (timeLenList[it] > 4){
+                        timeQ.emplace_back(timeLenList[it], tid, vs[indList[it]], timeList[it]);
+                        std::push_heap(timeQ.begin(), timeQ.end(), compTime);
+                    }
+                }else{
+                    if (!baseSub){
+                        spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
+                        std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
+                        baseSub = true;
                     }
                 }
             }
-        };
+        }
+    };
     
     grid.seq_foreach_tet([&](mtet::TetId tid, [[maybe_unused]] std::span<const mtet::VertexId, 4> vs)
                          { push_one_col(tid); });
@@ -355,7 +386,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude &cell5M
             /// temporal subdivision:
             Timer temporal_splits_timer(time_splits, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
             std::pop_heap(timeQ.begin(), timeQ.end(), compTime);
-            auto [_ , tid, vid, time, simp] = timeQ.back();
+            auto [_ , tid, vid, time] = timeQ.back();
             timeQ.pop_back();
             
             if (!grid.has_tet(tid)){
@@ -364,8 +395,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude &cell5M
             std::span<VertexId, 4> vs = grid.get_tet(tid);
             vertexCol timeList = vertexMap[value_of(vid)];
             simpCol cell5List = cell5Map[vs];
-            if (
-                simp->level != cell5List.level || cell5List.covered || timeList.timeExist[time]){
+            if (cell5List.covered || timeList.timeExist[time]){
                 continue;
             }
             splits ++;
@@ -393,10 +423,9 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude &cell5M
                 if (cell5Map[newVs].cell5Col.size() == 0){
                     continue;
                 }
-                cell5Map[newVs].level ++;
                 std::array<uint64_t, 4> quad = {value_of(newVs[0]), value_of(newVs[1]), value_of(newVs[2]), value_of(newVs[3])};
                 size_t ind = static_cast<int>(std::distance(quad.begin(), std::find(quad.begin(), quad.end(), value_of(vid))));
-                llvm_vecsmall::SmallVector<size_t, 256> refineList = resampleTimeCol(cell5Map[newVs].cell5Col, cell5Map[newVs].level, time, quad, ind);
+                llvm_vecsmall::SmallVector<size_t, 256> refineList = resampleTimeCol(cell5Map[newVs].cell5Col, time, quad, ind);
                 push_simps(newTets[i], refineList);
             }
             temporal_splits_timer.Stop();
@@ -404,14 +433,14 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude &cell5M
             /// spatial subdivision:
             Timer spatial_splits_timer(space_splits, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
             std::pop_heap(spaceQ.begin(), spaceQ.end(), compSpace);
-            auto [_ , tid, eid, simp] = spaceQ.back();
+            auto [_ , tid, eid] = spaceQ.back();
             spaceQ.pop_back();
             if (!grid.has_tet(tid)){
                 continue;
             }
             std::span<VertexId, 4> vs = grid.get_tet(tid);
             simpCol cell5List = cell5Map[vs];
-            if (cell5List.covered || (simp!= always_sub_ptr && simp->level != cell5List.level)){
+            if (cell5List.covered){
                 continue;
             }
             Timer create_vert(init_vert_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
@@ -448,14 +477,15 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude &cell5M
                     vertexMap[value_of(vs[i])].vertTetAssoc.emplace_back(t0);
                 }
                 add_assoc.Stop();
-                Timer add_col_timer(extrude_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
                 simpCol col;
                 col.cell5Col = sampleCol(vs, vertexMap);
                 cell5Map[vs] = col;
+                Timer add_col_timer(extrude_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
+                insideMap[vs] = false;
+                //cell5Map[vs] = col;
+                //cell5Map[vs].cell5Col = sampleCol(vs, vertexMap);
                 add_col_timer.Stop();
-                Timer push_col(eval_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
                 push_one_col(t0);
-                push_col.Stop();
             });
             grid.foreach_tet_around_edge(eid1, [&](mtet::TetId t1)
                                          {
@@ -465,14 +495,14 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude &cell5M
                     vertexMap[value_of(vs[i])].vertTetAssoc.emplace_back(t1);
                 }
                 add_assoc.Stop();
-                Timer add_col_timer(extrude_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
                 simpCol col;
                 col.cell5Col = sampleCol(vs, vertexMap);
                 cell5Map[vs] = col;
+                Timer add_col_timer(extrude_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
+                insideMap[vs] = false;
+                //cell5Map[vs].cell5Col = sampleCol(vs, vertexMap);
                 add_col_timer.Stop();
-                Timer push_col(eval_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
                 push_one_col(t1);
-                push_col.Stop();
             });
             spatial_splits_timer.Stop();
         }

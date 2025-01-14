@@ -14,12 +14,26 @@
 #include "adaptive_column_grid.h"
 #include "timer.h"
 
+Eigen::RowVector<double, 35> bezier4D(
+                                      const std::array<Eigen::RowVector4d, 5>& pts,
+                                      const Eigen::RowVector<double, 5>& vals,
+                                      const std::array<Eigen::RowVector4d, 5>& grads);
+
 bool refineContour(
                    const std::array<vertex4d, 5> verts,
                    const double threshold,
                    bool& inside,
                    bool& choice,
-                   std::array<double, timer_amount>& profileTimer);
+                   std::array<double, timer_amount>& profileTimer,
+                   int& counter);
+
+bool refineContour_test(
+                        const std::array<vertex4d, 5> verts,
+                        const double threshold,
+                        bool& inside,
+                        bool& choice,
+                        std::array<double, timer_amount>& profileTimer,
+                        int& counter);
 
 bool refineCap(
                const std::array<vertex4d, 4> verts,

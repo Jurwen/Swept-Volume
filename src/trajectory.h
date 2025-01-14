@@ -272,4 +272,34 @@ std::pair<Scalar, Eigen::RowVector4d> rotatingSpherewLift(Eigen::RowVector4d inp
     return {value, gradient};
 }
 
+std::pair<Scalar, Eigen::RowVector4d> tearDropLine(Eigen::RowVector4d inputs) {
+    // Unpack the inputs
+    Scalar xx = inputs(0);
+    Scalar yy = inputs(1);
+    Scalar zz = inputs(2);
+    Scalar tt = inputs(3);
+    
+    // Precomputed terms
+    Scalar term_xx = -0.5 - 0.01 * (1.0 - tt) - 0.01 * tt + xx;  // Term involving xx
+    Scalar term_yy = -0.25 - 0.01 * (1.0 - tt) - 0.51 * tt + yy; // Term involving yy
+    Scalar term_zz = -0.5 - 0.01 * (1.0 - tt) - 0.01 * tt + zz;  // Term involving zz
+    
+    // Compute scalar value
+    Scalar value = -128.0 * std::pow(term_xx, 4) -
+    512.0 * std::pow(term_xx, 5) +
+    16.0 * std::pow(term_yy, 2) +
+    16.0 * std::pow(term_zz, 2);
+    
+    // Compute gradient
+    Eigen::RowVector4d gradient;
+    gradient(0) = -512.0 * std::pow(term_xx, 3) - 2560.0 * std::pow(term_xx, 4); // Gradient w.r.t. xx
+    gradient(1) = 32.0 * term_yy;                                               // Gradient w.r.t. yy
+    gradient(2) = 32.0 * term_zz;                                               // Gradient w.r.t. zz
+    gradient(3) = -16.0 * term_yy;                                              // Gradient w.r.t. tt
+    
+    // Return the value and gradient as a pair
+    return {value, gradient};
+    
+}
+
 #endif /* trajectory_h */

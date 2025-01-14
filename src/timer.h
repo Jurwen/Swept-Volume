@@ -12,17 +12,18 @@
 #include <array>
 #include <string>
 ///The current amount in time profiling.
-const int timer_amount = 8;
+const int timer_amount = 9;
 
 /// The labels for timing stats.
-const std::array<std::string, timer_amount> time_label = {"temporal splits: ",
-    "spatial splits: ",
+const std::array<std::string, timer_amount> time_label = {"temporal splits",
+    "spatial splits",
     "create vertex column",
     "add connectivity",
     "extrude tet column",
     "evaluate tet column",
-    "push queue",
-    "meshing"
+    "first function",
+    "second function",
+    "refinement criteria"
 };
 
 /// the enum for the timing labels.
@@ -33,8 +34,9 @@ enum timeProfileName{
     add_connectivity,
     extrude_tet_col,
     eval_tet_col,
-    pushQ,
-    meshing
+    first_func,
+    second_func,
+    ref_crit
 };
 
 /// add the timer recorded to the profiling timer.
@@ -84,11 +86,14 @@ public:
             case eval_tet_col:
                 m_timeProfile[5] += ms;
                 break;
-            case pushQ:
+            case first_func:
                 m_timeProfile[6] += ms;
                 break;
-            case meshing:
+            case second_func:
                 m_timeProfile[7] += ms;
+                break;
+            case ref_crit:
+                m_timeProfile[8] += ms;
                 break;
             default:
                 throw std::runtime_error("no matching time profile identifier");
@@ -100,7 +105,7 @@ public:
 private:
     timeProfileName m_Name;
     Fn m_Func;
-    std::array<double, timer_amount> m_timeProfile = {0,0,0,0,0,0,0};
+    std::array<double, timer_amount> m_timeProfile = {0,0,0,0,0,0,0,0};
     std::chrono::time_point<std::chrono::high_resolution_clock> starterTime;
 };
 

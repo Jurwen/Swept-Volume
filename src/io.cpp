@@ -98,7 +98,7 @@ void convert_4d_grid(mtet::MTetMesh grid,
                 simps_reserved *= 2;
                 simps.reserve(simps_reserved);
             }
-            simpHash = cell5Col[i]->hash;
+            simpHash = cell5Col[i].hash;
             curSimp[0] = headList[0] + (size_t)simpHash[0];
             curSimp[1] = headList[1] + (size_t)simpHash[1];
             curSimp[2] = headList[2] + (size_t)simpHash[2];
@@ -108,7 +108,7 @@ void convert_4d_grid(mtet::MTetMesh grid,
             i++;
         }
         ulsimp.emplace_back(headList);
-        std::array<int, 5> llSimpHash = cell5Col[cell5Col.size() - 1]->hash;
+        std::array<int, 5> llSimpHash = cell5Col[cell5Col.size() - 1].hash;
         std::array<size_t, 4> llface;
         llface[0] = curSimp[0];
         llface[1] = curSimp[1];

@@ -7,6 +7,7 @@
 
 #ifndef col_gridgen_h
 #define col_gridgen_h
+#include <nanothread/nanothread.h>
 
 #include "adaptive_column_grid.h"
 #include "ref_crit.h"
@@ -22,6 +23,7 @@
 /// @param[out] profileTimer            The time profiler. Details can be found in `timer.h`
 bool gridRefine(mtet::MTetMesh &grid,
                 vertExtrude &vertexMap,
+                tetExtrude_test &insideMap,
                 tetExtrude &cell5Map,
                 const std::function<std::pair<Scalar, Eigen::RowVector4d>(Eigen::RowVector4d)> func,
                 const double threshold,

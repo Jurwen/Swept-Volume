@@ -10,6 +10,7 @@ include(cli11)
 include(Eigen3)
 include(nlohmann-json)
 Include(Marching4DLib)
+include(nanothread)
 include(mtet)
 include(implicit_functions)
 include(convex_hull_membership)
@@ -26,6 +27,7 @@ target_link_libraries(adaptive_column_grid
     PUBLIC 
     Eigen3::Eigen
     mtet::mtet 
+    nanothread::nanothread
     convex_hull_membership
     implicit_functions::implicit_functions
     nlohmann_json::nlohmann_json

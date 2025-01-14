@@ -49,15 +49,15 @@ bool get_sign(double x) {
 
 Eigen::RowVector<double, 35> bezier4D(
                                       const std::array<Eigen::RowVector4d, 5>& pts,
-                                      const std::array<double, 5>& vals,
+                                      const Eigen::RowVector<double, 5>& vals,
                                       const std::array<Eigen::RowVector4d, 5>& grads)
 {
     // Decompose inputs
-    const auto& p1 = pts[0];
-    const auto& p2 = pts[1];
-    const auto& p3 = pts[2];
-    const auto& p4 = pts[3];
-    const auto& p5 = pts[4];
+    auto p1 = pts[0];
+    auto p2 = pts[1];
+    auto p3 = pts[2];
+    auto p4 = pts[3];
+    auto p5 = pts[4];
     
     double v1 = vals[0];
     double v2 = vals[1];
@@ -259,34 +259,40 @@ bool refineContour(
                    const double threshold,
                    bool& inside,
                    bool& choice,
-                   std::array<double, timer_amount>& profileTimer){
-//    Timer ref_crit_timer(ref_crit, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
-//    Timer zeroX_crit_one_timer(zeroX_crit_one, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
+                   std::array<double, timer_amount>& profileTimer,
+                   int& counter){
+//    Timer push_col(eval_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
     std::array<Eigen::RowVector4d, 5> pts;
-    std::array<double, 5> vals;
+    Eigen::RowVector<double, 5> vals;
     std::array<Eigen::RowVector4d, 5> grads;
     for (size_t i = 0; i < 5; i++){
         pts[i] = verts[i].coord;
         vals[i] = verts[i].valGradList.first;
         grads[i] = verts[i].valGradList.second;
     }
+    Timer first_func_timer(first_func, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
     Eigen::RowVector<double, 35> bezierVals = bezier4D(pts, vals, grads);
+    first_func_timer.Stop();
     inside = inside || (std::max(bezierVals.head(4).maxCoeff(), (bezierVals.tail(30))(topFIndices).maxCoeff()) <= 0);
     inside = inside || (std::max(bezierVals({1,2,3,4}).maxCoeff(), (bezierVals.tail(30))(botFIndices).maxCoeff()) <= 0);
     if (get_sign(bezierVals.maxCoeff()) == get_sign(bezierVals.minCoeff())){
         return false;
     }
+    Timer second_func_timer(second_func, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
     Eigen::RowVector<double, 35> bezierGrad = bezierDerOrds(bezierVals, pts);
+    second_func_timer.Stop();
     if (get_sign(bezierGrad.maxCoeff()) == get_sign(bezierGrad.minCoeff())){
         return false;
     }
-//    zeroX_crit_one_timer.Stop();
-//    Timer zeroX_crit_timer(zeroX_crit_two, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
     Eigen::Matrix<double, 2, 35> nPoints_eigen;
     nPoints_eigen << bezierVals, bezierGrad;
     std::array<double, 70> nPoints = parse_convex_points2d(nPoints_eigen);
-//    bool zeroX = convex_hull_membership::contains<2, double>(nPoints, query_2d);
+    Timer zeroX_timer(ref_crit, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
+    //bool zeroX = convex_hull_membership::contains<2, double>(nPoints, query_2d);
     bool zeroX = !outHullClip2D(nPoints_eigen);
+    //counter++;
+    zeroX_timer.Stop();
+//    bool zeroX = !outHullClip2D(nPoints_eigen);
 //    zeroX_crit_timer.Stop();
 //    Timer distance_crit_timer(distance_crit, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
     if (zeroX){
@@ -322,8 +328,40 @@ bool refineContour(
             return true;
         }
     }
-//    distance_crit_timer.Stop();
-//    ref_crit_timer.Stop();
+    return false;
+}
+
+bool refineContour_test(
+                   const std::array<vertex4d, 5> verts,
+                   const double threshold,
+                   bool& inside,
+                   bool& choice,
+                   std::array<double, timer_amount>& profileTimer,
+                   int& counter){
+//    Timer push_col(eval_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
+    std::array<Eigen::RowVector4d, 5> pts;
+    Eigen::RowVector<double, 5> vals;
+    std::array<Eigen::RowVector4d, 5> grads;
+    for (size_t i = 0; i < 5; i++){
+        pts[i] = verts[i].coord;
+        vals[i] = verts[i].valGradList.first;
+        grads[i] = verts[i].valGradList.second;
+    }
+    Timer first_func_timer(first_func, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
+    Eigen::RowVector<double, 35> bezierVals = bezier4D(pts, vals, grads);
+    first_func_timer.Stop();
+    inside = inside || (std::max(bezierVals.head(4).maxCoeff(), (bezierVals.tail(30))(topFIndices).maxCoeff()) <= 0);
+    inside = inside || (std::max(bezierVals({1,2,3,4}).maxCoeff(), (bezierVals.tail(30))(botFIndices).maxCoeff()) <= 0);
+    if (get_sign(bezierVals.maxCoeff()) == get_sign(bezierVals.minCoeff())){
+        return false;
+    }
+    Timer second_func_timer(second_func, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
+    Eigen::RowVector<double, 35> bezierGrad = bezierDerOrds(bezierVals, pts);
+    second_func_timer.Stop();
+    if (get_sign(bezierGrad.maxCoeff()) == get_sign(bezierGrad.minCoeff())){
+        return false;
+    }
+
     return false;
 }
 

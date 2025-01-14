@@ -70,8 +70,8 @@ public:
     /// Build a simplex that will be inserted to the simplex column after the temporal edge subdivision.
     /// @param[in] time: The inserted time during the temporal split
     /// @param[in] ind: The index of the inserted time sample at this column of vertices
-    /// @return: A shared pointer of the new 5-cell/simplex
-    std::shared_ptr<cell5> rebuildCell5(const int time, const int ind){
+    /// @return: A new 5-cell/simplex
+    cell5 rebuildCell5(const int time, const int ind){
         cell5 simp;
 
         std::array<int, 5> botInd = {hash[0], hash[1], hash[2], hash[3], 0};
@@ -100,11 +100,7 @@ public:
                 break;
         }
         simp.hash = botInd;
-        return std::make_shared<cell5>(simp);
-    }
-    
-    cell5 copyCell5(){
-        return *this;
+        return simp;
     }
 };
 
@@ -152,9 +148,8 @@ public:
 /// @param covered: Whether or not this column is covered; Covered means that there is a lifetd 3D tetrahedra face has all its bezier orndates below 0.
 class simpCol{
 public:
-    using cell5_list = llvm_vecsmall::SmallVector<std::shared_ptr<cell5>, 256>;
+    using cell5_list = llvm_vecsmall::SmallVector<cell5, 256>;
     cell5_list cell5Col;
-    int level = 0;// to prevent a subdivision of cell5 that's already been refined spatially
     bool covered = false;
     simpCol() = default;
 };
@@ -168,7 +163,7 @@ struct TetHash
 {
     using is_avalanching = void;
     using is_transparent = void;
-    auto operator()(std::span<mtet::VertexId, 4> const& x) const noexcept -> uint64_t {
+    [[nodiscard]] auto operator()(std::span<mtet::VertexId, 4> const& x) const noexcept -> uint64_t {
         ankerl::unordered_dense::hash<uint64_t> hash_fn;
         return ankerl::unordered_dense::detail::wyhash::hash(hash_fn(value_of(x[0])) + hash_fn(value_of(x[1])) + hash_fn(value_of(x[2])) + hash_fn(value_of(x[3])));
     }
@@ -188,5 +183,7 @@ struct TetEqual
 
 /// A mount of a list of 4D simplices column
 using tetExtrude = ankerl::unordered_dense::map<std::span<mtet::VertexId, 4>, simpCol, TetHash, TetEqual>;
+
+using tetExtrude_test = ankerl::unordered_dense::map<std::span<mtet::VertexId, 4>, bool, TetHash, TetEqual>;
 
 #endif /* adaptive_column_grid_h */
