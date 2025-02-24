@@ -32,7 +32,7 @@ public:
     int time; //int-valued hash; Default largest vert4dList is 1024
     Eigen::RowVector4d coord;
     std::pair<Scalar, Eigen::RowVector4d> valGradList;
-    
+    bool inherit = true;
     vertex4d() = default;
 };
 
@@ -139,6 +139,10 @@ public:
             timeList[i] = vert4dList[i].time;
         }
         return timeList;
+    }
+    
+    void sortTime(){
+        std::sort(vert4dList.begin(), vert4dList.end(), compVertex);
     }
 };
 

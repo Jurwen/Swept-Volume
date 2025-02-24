@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
+
 include(cli11)
 include(Eigen3)
 include(nlohmann-json)
@@ -16,6 +17,10 @@ include(implicit_functions)
 include(convex_hull_membership)
 include(unordered_dense)
 include(smallvector)
+
+# libigl
+option(LIBIGL_WITH_CGAL "Use CGAL"          ON)
+find_package(LIBIGL REQUIRED QUIET)
 
 
 # project library
@@ -33,6 +38,8 @@ target_link_libraries(adaptive_column_grid
     nlohmann_json::nlohmann_json
     smallvector::smallvector
     unordered_dense::unordered_dense
+    igl::core
+    igl::cgal
     )
 
 add_executable(general_sweep "app/general_sweep")

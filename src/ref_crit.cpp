@@ -292,10 +292,28 @@ bool refineContour(
     bool zeroX = !outHullClip2D(nPoints_eigen);
     //counter++;
     zeroX_timer.Stop();
-//    bool zeroX = !outHullClip2D(nPoints_eigen);
-//    zeroX_crit_timer.Stop();
-//    Timer distance_crit_timer(distance_crit, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
+    //    bool zeroX = !outHullClip2D(nPoints_eigen);
+    //    zeroX_crit_timer.Stop();
+    //    Timer distance_crit_timer(distance_crit, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
     if (zeroX){
+        //        auto vec1 = pts[1] - pts[0], vec2 = pts[2] - pts[0], vec3 = pts[3] - pts[0], vec4 = pts[4] - pts[0];
+        //        Eigen::Matrix4d vec;
+        //        vec << vec1, vec2, vec3, vec4;
+        //        Eigen::RowVector<double, 30> diffList = bezierGrad.tail(30) - (bezierGrad.head(5) * ls.bottomRows(30).transpose()) / 3;
+        //        const double diff = std::max(diffList.maxCoeff(), -diffList.minCoeff());
+        //        auto adj = adjugate(vec);
+        //        double v1 = bezierGrad[0];
+        //        double v2 = bezierGrad[1];
+        //        double v3 = bezierGrad[2];
+        //        double v4 = bezierGrad[3];
+        //        double v5 = bezierGrad[4];
+        //        Eigen::RowVector4d gradList = Eigen::RowVector4d(v2-v1, v3-v1, v4-v1, v5-v1) * adj;
+        //        double D = vec.determinant();
+        //        double lhs = diff * diff * D * D;
+        //        double rhs = threshold * threshold * gradList.dot(gradList);
+        //        if (lhs > rhs) {
+        //            return true;
+        //        }
         //return true;
         auto vec1 = pts[1] - pts[0], vec2 = pts[2] - pts[0], vec3 = pts[3] - pts[0], vec4 = pts[4] - pts[0];
         Eigen::Matrix4d vec;

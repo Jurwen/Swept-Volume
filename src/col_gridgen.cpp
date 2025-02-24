@@ -137,6 +137,106 @@ void init5CGrid(const int timeDep, mtet::MTetMesh grid, const std::function<std:
     });
 }
 
+bool sign(double x) {
+    return x > 0;
+}
+
+void initNewVert(vertexCol& newVertCol,
+                 std::span<const mtet::Scalar, 3> data,
+                 const std::function<std::pair<Scalar,Eigen::RowVector4d>(Eigen::RowVector4d)> func,
+                 const double threshold){
+    auto timeEdgeComp = [](std::pair<vertex4d, vertex4d>timeEdge0,
+                           std::pair<vertex4d, vertex4d>timeEdge1)
+    { return timeEdge0.second.time - timeEdge0.first.time <= timeEdge1.second.time - timeEdge1.first.time; };
+    std::vector<std::pair<vertex4d, vertex4d>> queue;
+    ///Given v0, v1, v2, v3 at the bezier control points of an edge, the following is the
+    ///{3 (-v0 + v1), -v0 - v1 + 2 v2, -2 v1 + v2 + v3, 3 (-v2 + v3)}
+    auto push_edge = [&](vertex4d vertex0, vertex4d vertex1){
+        int edgeLen_int = vertex1.time - vertex0.time;
+        if (edgeLen_int <= 4){
+            return 0;
+        }
+        double edgeLen = (double)(edgeLen_int) / 1024.0;
+        double v0, v1, v2, v3, gv0, gv1, gv2, gv3;
+        v0 = vertex0.valGradList.first;
+        v3 = vertex1.valGradList.first;
+        v1 = v0 + vertex0.valGradList.second[3] * edgeLen / 3;
+        v2 = v3 - vertex1.valGradList.second[3] * edgeLen / 3;
+        gv0 = 3 * (v1 - v0);
+        gv1 = -v0 - v1 + 2 * v2;
+        gv2 = -2 * v1 + v2 + v3;
+        gv3 = 3 * (-v2 + v3);
+        Eigen::RowVector4d bezierVals, bezierGrad;
+        bezierVals << v0, v1, v2, v3;
+        bezierGrad << gv0, gv1, gv2, gv3;
+//        std::cout << bezierVals << std::endl;
+//        std::cout << bezierGrad << std::endl;
+        if (sign(bezierVals.maxCoeff()) == sign(bezierVals.minCoeff())){
+            return 0;
+        }
+        if (sign(bezierGrad.maxCoeff()) == sign(bezierGrad.minCoeff())){
+            return 0;
+        }
+        double grad0 = (v3 - v0) / edgeLen;
+        //std::cout << std::abs((v1 - (2 * v0 + v3) / 3) / grad0) << std::endl;
+        if (std::abs((v1 - (2 * v0 + v3) / 3) / grad0) > threshold || std::abs((v2 - (v0 + 2 * v3) / 3) / grad0) > threshold){
+            return edgeLen_int;
+        }
+        double grad1 = (gv3 - gv0) / edgeLen;
+        if (std::abs((gv1 - (2 * gv0 + gv3) / 3) / grad1) > threshold || std::abs((gv2 - (gv0 + 2 * gv3) / 3) / grad1) > threshold){
+                    return edgeLen_int;
+                }
+        
+        return 0;
+    };
+    const int timeLen = 4;
+    vertexCol::vert4d_list vertColList(timeLen + 1);
+    int len = 1024 / timeLen;
+    vertexCol::time_list time3DList(timeLen + 1);
+    for (int i = 0; i < timeLen+1; i++){
+        int time = i * len;
+        time3DList[i] = time;
+    }
+    for (int i = 0; i < timeLen + 1; i++){
+        vertex4d vert;
+        vert.time = time3DList[i];
+        double time_fp = (double)vert.time / 1024;
+        vert.coord = {data[0], data[1], data[2], time_fp};
+        vert.valGradList = func(vert.coord);
+        vertColList[i] = vert;
+        if (i != 0){
+            if (push_edge(vertColList[i-1], vertColList[i]) != 0){
+                queue.emplace_back(vertColList[i-1], vertColList[i]);
+                std::push_heap(queue.begin(), queue.end(), timeEdgeComp);
+            }
+        }
+    }
+    while (!queue.empty()){
+        std::pop_heap(queue.begin(), queue.end(), timeEdgeComp);
+        auto [vertex0, vertex1] = queue.back();
+        queue.pop_back();
+        vertex4d newVert;
+        newVert.time = (vertex0.time + vertex1.time) / 2;
+        newVert.coord = {data[0], data[1], data[2], (double)newVert.time / 1024};
+        newVert.valGradList = func(newVert.coord);
+        vertColList.push_back(newVert);
+        if (push_edge(vertex0, newVert) != 0){
+            queue.emplace_back(vertex0, newVert);
+            std::push_heap(queue.begin(), queue.end(), timeEdgeComp);
+        }
+        if (push_edge(newVert, vertex1) != 0){
+            queue.emplace_back(newVert, vertex1);
+            std::push_heap(queue.begin(), queue.end(), timeEdgeComp);
+        }
+    }
+    newVertCol.vert4dList = vertColList;
+    newVertCol.sortTime();
+//    std::cout << "Printing vertex column info: " << std::endl;
+//    for (auto vert : newVertCol.vert4dList){
+//        std::cout << vert.coord << std::endl;
+//    }
+}
+
 bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude_test &insideMap, tetExtrude &cell5Map, const std::function<std::pair<Scalar, Eigen::RowVector4d>(Eigen::RowVector4d)> func, const double threshold, const int max_splits, std::array<double, timer_amount>& profileTimer){
     init5CGrid(3, grid, func, 1024, vertexMap, cell5Map);
     ///
@@ -187,74 +287,75 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude_test &i
         std::vector<bool> subList(cell5Col.size(), false);
         std::vector<bool> choiceList(cell5Col.size());
         Timer push_col(eval_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
-        dr::parallel_for(
-                         dr::blocked_range<size_t>(0, cell5Col.size(), cell5Col.size() / 12),
-                         [&](dr::blocked_range<size_t> range) {
-                             for (auto cell5It : range) {
-                                 auto simp = cell5Col[cell5It];
-                                 std::array<int, 5> cell5Index = simp.hash;
-                                 int lastInd = cell5Index[4];
-                                 std::array<vertex4d, 5> verts;
-                                 verts[0] = baseVerts[lastInd].vert4dList[cell5Index[lastInd]];
-                                 size_t ind = 0;
-                                 for (size_t i = 0; i < 4; i++){
-                                     if (i != lastInd){
-                                         ind ++;
-                                         verts[ind] = baseVerts[i].vert4dList[cell5Index[i]];
-                                     }
-                                 }
-                                 verts[4] = baseVerts[lastInd].vert4dList[cell5Index[lastInd] - 1];
-                                 bool inside = false;
-                                 bool choice = false;
-                                 bool ret = refineContour(verts, threshold, inside, choice, profileTimer, spatial_splits);
-                                 if (inside) {
-                                     cell5Map[vs].covered = true;
-                                     push_col.Stop();
-                                     return;
-                                 }
-                                 if (ret) {
-                                     subList[cell5It] = true;
-                                     timeLenList[cell5It] = verts[0].time - verts[4].time;
-                                     timeList[cell5It] = (verts[0].time + verts[4].time) / 2;
-                                     indList[cell5It] = lastInd;
-                                     choiceList[cell5It] = choice;
-                                 }
-                             }
-                         });
-        push_col.Stop();
+//        dr::parallel_for(
+//                         dr::blocked_range<size_t>(0, cell5Col.size(), cell5Col.size() / 12),
+//                         [&](dr::blocked_range<size_t> range) {
+//                             for (auto cell5It : range) {
+//                                 auto simp = cell5Col[cell5It];
+//                                 std::array<int, 5> cell5Index = simp.hash;
+//                                 int lastInd = cell5Index[4];
+//                                 std::array<vertex4d, 5> verts;
+//                                 verts[0] = baseVerts[lastInd].vert4dList[cell5Index[lastInd]];
+//                                 size_t ind = 0;
+//                                 for (size_t i = 0; i < 4; i++){
+//                                     if (i != lastInd){
+//                                         ind ++;
+//                                         verts[ind] = baseVerts[i].vert4dList[cell5Index[i]];
+//                                     }
+//                                 }
+//                                 verts[4] = baseVerts[lastInd].vert4dList[cell5Index[lastInd] - 1];
+//                                 bool inside = false;
+//                                 bool choice = false;
+//                                 bool ret = refineContour(verts, threshold, inside, choice, profileTimer, spatial_splits);
+//                                 if (inside) {
+//                                     cell5Map[vs].covered = true;
+//                                     push_col.Stop();
+//                                     return;
+//                                 }
+//                                 if (ret) {
+//                                     subList[cell5It] = true;
+//                                     timeLenList[cell5It] = verts[0].time - verts[4].time;
+//                                     timeList[cell5It] = (verts[0].time + verts[4].time) / 2;
+//                                     indList[cell5It] = lastInd;
+//                                     choiceList[cell5It] = choice;
+//                                 }
+//                             }
+//                         });
+//        push_col.Stop();
         //Timer push_col(eval_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
-//        for (size_t cell5It = 0; cell5It < cell5Col.size(); cell5It++){
-//            auto simp = cell5Col[cell5It];
-//            std::array<int, 5> cell5Index = simp.hash;
-//            int lastInd = cell5Index[4];
-//            std::array<vertex4d, 5> verts;
-//            verts[0] = baseVerts[lastInd].vert4dList[cell5Index[lastInd]];
-//            size_t ind = 0;
-//            for (size_t i = 0; i < 4; i++){
-//                if (i != lastInd){
-//                    ind ++;
-//                    verts[ind] = baseVerts[i].vert4dList[cell5Index[i]];
-//                }
-//            }
-//            verts[4] = baseVerts[lastInd].vert4dList[cell5Index[lastInd] - 1];
-//            bool inside = false;
-//            bool choice = false;
-////            Timer ref_crit_timer(ref_crit, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
-//            bool ret = refineContour(verts, threshold, inside, choice, profileTimer, spatial_splits);
-////            ref_crit_timer.Stop();
-//            if (inside) {
-//                cell5Map[vs].covered = true;
-//                //push_col.Stop();
-//                return;
-//            }
-//            if (ret) {
-//                subList[cell5It] = true;
-//                timeLenList[cell5It] = verts[0].time - verts[4].time;
-//                timeList[cell5It] = (verts[0].time + verts[4].time) / 2;
-//                indList[cell5It] = lastInd;
-//                choiceList[cell5It] = choice;
-//            }
-//        }
+        for (size_t cell5It = 0; cell5It < cell5Col.size(); cell5It++){
+            auto simp = cell5Col[cell5It];
+            std::array<int, 5> cell5Index = simp.hash;
+            int lastInd = cell5Index[4];
+            std::array<vertex4d, 5> verts;
+            verts[0] = baseVerts[lastInd].vert4dList[cell5Index[lastInd]];
+            size_t ind = 0;
+            for (size_t i = 0; i < 4; i++){
+                if (i != lastInd){
+                    ind ++;
+                    verts[ind] = baseVerts[i].vert4dList[cell5Index[i]];
+                }
+            }
+            verts[4] = baseVerts[lastInd].vert4dList[cell5Index[lastInd] - 1];
+            bool inside = false;
+            bool choice = false;
+//            Timer ref_crit_timer(ref_crit, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
+            bool ret = refineContour(verts, threshold, inside, choice, profileTimer, spatial_splits);
+//            ref_crit_timer.Stop();
+            if (inside) {
+                cell5Map[vs].covered = true;
+                //push_col.Stop();
+                return;
+            }
+            //choice = (verts[0].coord[3] - verts[4].coord[3]) > longest_edge_length;
+            if (ret) {
+                subList[cell5It] = true;
+                timeLenList[cell5It] = verts[0].time - verts[4].time;
+                timeList[cell5It] = (verts[0].time + verts[4].time) / 2;
+                indList[cell5It] = lastInd;
+                choiceList[cell5It] = choice;
+            }
+        }
         //push_col.Stop();
         for (size_t cell5It = 0; cell5It < cell5Col.size(); cell5It++){
             if (subList[cell5It]){
@@ -279,7 +380,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude_test &i
                 verts[i] = baseVerts[i].vert4dList.front();
             }
             bool zeroX = false;
-            bool ret = refineCap(verts, threshold/2, zeroX);
+            bool ret = refineCap(verts, threshold * 0.1, zeroX);
             if (ret){
                 spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
                 std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
@@ -292,7 +393,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude_test &i
                 verts[i] = baseVerts[i].vert4dList.back();
             }
             bool zeroX = false;
-            bool ret = refineCap(verts, threshold/2, zeroX);
+            bool ret = refineCap(verts, threshold * 0.1, zeroX);
             if (ret){
                 spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
                 std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
@@ -415,6 +516,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude_test &i
             vertex4d newVert;
             newVert.time = time;
             newVert.coord = {timeList.vert4dList[0].coord[0], timeList.vert4dList[0].coord[1], timeList.vert4dList[0].coord[2], (double)time / 1024};
+            newVert.inherit = false;
             newVert.valGradList = func(newVert.coord);
             int inserted_ind = timeList.insertTime(newVert);
             vertexMap[value_of(vid)] = timeList;
@@ -452,21 +554,26 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, tetExtrude_test &i
             std::span<Scalar, 3> vidCoord = grid.get_vertex(vid);
             vertexCol v0Col = vertexMap[value_of(vs_old[0])];
             vertexCol v1Col = vertexMap[value_of(vs_old[1])];
-            vertexCol::time_list v0Time = v0Col.getTimeList();
-            vertexCol::time_list v1Time = v1Col.getTimeList();
-            vertexCol::time_list tSamples;
-            std::set_union(v0Time.begin(), v0Time.end(), v1Time.begin(), v1Time.end(), std::back_inserter(tSamples));
             vertexCol newVertCol;
-            vertexCol::vert4d_list vertColList(tSamples.size());
-            for (int i = 0; i < tSamples.size(); i++){
-                vertex4d vert;
-                vert.time = tSamples[i];
-                double time_fp = (double)vert.time / 1024;
-                vert.coord = {vidCoord[0], vidCoord[1], vidCoord[2], time_fp};
-                vert.valGradList = func(vert.coord);
-                vertColList[i] = vert;
+            const bool new_sample = false;
+            if (new_sample){
+                initNewVert(newVertCol, vidCoord, func, threshold);
+            }else{
+                vertexCol::time_list v0Time = v0Col.getTimeList();
+                vertexCol::time_list v1Time = v1Col.getTimeList();
+                vertexCol::time_list tSamples;
+                std::set_union(v0Time.begin(), v0Time.end(), v1Time.begin(), v1Time.end(), std::back_inserter(tSamples));
+                vertexCol::vert4d_list vertColList(tSamples.size());
+                for (int i = 0; i < tSamples.size(); i++){
+                    vertex4d vert;
+                    vert.time = tSamples[i];
+                    double time_fp = (double)vert.time / 1024;
+                    vert.coord = {vidCoord[0], vidCoord[1], vidCoord[2], time_fp};
+                    vert.valGradList = func(vert.coord);
+                    vertColList[i] = vert;
+                }
+                newVertCol.vert4dList = vertColList;
             }
-            newVertCol.vert4dList = vertColList;
             vertexMap[value_of(vid)] = newVertCol;
             create_vert.Stop();
             grid.foreach_tet_around_edge(eid0, [&](mtet::TetId t0)

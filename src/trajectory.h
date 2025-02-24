@@ -10,7 +10,45 @@
 
 #include "adaptive_column_grid.h"
 
-double sweptFunc();
+void trajLine3D(double t, Eigen::RowVector3d& xt, Eigen::RowVector3d& vt) {
+    // Define the fixed vectors
+    Eigen::RowVector3d start(0.01, 0.01, 0.0);
+    Eigen::RowVector3d end(0.51, 0.0, 0.01);
+    Eigen::RowVector3d offset(0.25, 0.5, 0.5);
+
+    // Compute the linear interpolation and add the offset
+    xt = (1.0 - t) * start + t * end + offset;
+    vt = end - start;
+}
+
+void trajBezier(double t, Eigen::RowVector3d& xt, Eigen::RowVector3d& vt) {
+    // Compute position values
+    xt(0) = 0.175 + 4 * (1 - t) * (1 - t) * t - 2 * (1 - t) * t * t + (2.0 / 3.0) * t * t * t;
+    xt(1) = 0.2 + 2 * (1 - t) * (1 - t) * t + 2 * (1 - t) * t * t;
+    xt(2) = 0.5;
+
+    // Compute velocity values (derivatives)
+    vt(0) = 4 * (1 - t) * (1 - t) - 12 * (1 - t) * t + 4 * t * t;
+    vt(1) = 2 * (1 - t) * (1 - t) - 2 * t * t;
+    vt(2) = 0.0; // No velocity change in the z-direction
+}
+
+
+void trajLineRot3D(double t, Eigen::Matrix3d& Rt, Eigen::Matrix3d& VRt, const int rotNum) {
+    const Scalar pi = 3.14159;
+    // Compute sine and cosine of theta
+    double cosTheta = std::cos(t * rotNum * pi);
+    double sinTheta = std::sin(t * rotNum * pi);
+    
+    // Rotation matrix Rz(theta)
+    Rt << cosTheta, -sinTheta, 0,
+    sinTheta,  cosTheta, 0,
+    0,        0,        1;
+    
+    VRt << -sinTheta, -cosTheta, 0,
+    cosTheta, -sinTheta, 0,
+    0,        0,        0;
+}
 
 Eigen::RowVector3d trajLine(double t, std::span<const Scalar, 3> coords){
     Eigen::RowVector3d translation = (1 - t) * Eigen::RowVector3d(1./3., 0., 0.) + t * Eigen::RowVector3d(0, 1./3., 0.) + Eigen::RowVector3d(1./3., 1./3. , 1./2.);

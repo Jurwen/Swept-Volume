@@ -8,10 +8,12 @@
 #ifndef col_gridgen_h
 #define col_gridgen_h
 #include <nanothread/nanothread.h>
-
+#include <iostream>
 #include "adaptive_column_grid.h"
 #include "ref_crit.h"
 #include "timer.h"
+
+void initNewVert(vertexCol& newVert, std::span<const mtet::Scalar, 3> data, const std::function<std::pair<Scalar, Eigen::RowVector4d>(Eigen::RowVector4d)> func, const double threshold);
 
 /// Create a column-wise 4D grid data structure. It contains a base 3D tetrahedra grid. On top of each vertex and tetrahedra, there sits a column of 4D data. For a 3D vertex, there is a list of 4D vertices that only differ in the fourth coordinate. For a 3D tet, there is a list of 4D 5-cell/simplex that two of its tetrahedra faces can be projected down to the same 3D tet, and three of the faces are projected down to 2D triangular faces.
 /// @param[out] grid         The base 3D tetrahedra grid.

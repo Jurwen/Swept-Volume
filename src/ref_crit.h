@@ -19,6 +19,8 @@ Eigen::RowVector<double, 35> bezier4D(
                                       const Eigen::RowVector<double, 5>& vals,
                                       const std::array<Eigen::RowVector4d, 5>& grads);
 
+bool outHullClip2D(Eigen::Matrix<double, 2, 35> pts);
+
 bool refineContour(
                    const std::array<vertex4d, 5> verts,
                    const double threshold,
