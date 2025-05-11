@@ -239,7 +239,7 @@ TEST_CASE("graident check through finite differences regarding libigl functions"
     };
     
     SECTION("sphere through line:") {
-        igl::WindingNumberAABB<Eigen::RowVector3d,Eigen::MatrixXd,Eigen::MatrixXi> hier;
+        igl::WindingNumberAABB<double, int> hier;
         hier.set_mesh(V,F);
         hier.grow();
         std::array<int, 4> error_num = check_grad(100);
@@ -254,7 +254,7 @@ TEST_CASE("graident check through finite differences regarding libigl functions"
     tree.init(V,F);
     igl::fast_winding_number(V,F,order,fwn_bvh);
     SECTION("torus through line:") {
-        igl::WindingNumberAABB<Eigen::RowVector3d,Eigen::MatrixXd,Eigen::MatrixXi> hier;
+        igl::WindingNumberAABB<double, int> hier;
         hier.set_mesh(V,F);
         hier.grow();
         std::array<int, 4> error_num = check_grad(100);
@@ -270,7 +270,7 @@ TEST_CASE("graident check through finite differences regarding libigl functions"
     tree.init(V,F);
     igl::fast_winding_number(V,F,order,fwn_bvh);
     SECTION("translating bunny:") {
-        igl::WindingNumberAABB<Eigen::RowVector3d,Eigen::MatrixXd,Eigen::MatrixXi> hier;
+        igl::WindingNumberAABB<double, int> hier;
         hier.set_mesh(V,F);
         hier.grow();
         std::array<int, 4> error_num = check_grad(100);
@@ -286,7 +286,7 @@ TEST_CASE("graident check through finite differences regarding libigl functions"
     tree.init(V,F);
     igl::fast_winding_number(V,F,order,fwn_bvh);
     SECTION("translating kingkong:") {
-        igl::WindingNumberAABB<Eigen::RowVector3d,Eigen::MatrixXd,Eigen::MatrixXi> hier;
+        igl::WindingNumberAABB<double, int> hier;
         hier.set_mesh(V,F);
         hier.grow();
         std::array<int, 4> error_num = check_grad(100);
@@ -302,7 +302,7 @@ TEST_CASE("graident check through finite differences regarding libigl functions"
     tree.init(V,F);
     igl::fast_winding_number(V,F,order,fwn_bvh);
     SECTION("translating fandisk:") {
-        igl::WindingNumberAABB<Eigen::RowVector3d,Eigen::MatrixXd,Eigen::MatrixXi> hier;
+        igl::WindingNumberAABB<double, int> hier;
         hier.set_mesh(V,F);
         hier.grow();
         std::array<int, 4> error_num = check_grad(100);
@@ -319,7 +319,7 @@ TEST_CASE("graident check through finite differences regarding libigl functions"
     tree.init(V,F);
     igl::fast_winding_number(V,F,order,fwn_bvh);
     SECTION("sphere through line with rotation:") {
-        igl::WindingNumberAABB<Eigen::RowVector3d,Eigen::MatrixXd,Eigen::MatrixXi> hier;
+        igl::WindingNumberAABB<double, int> hier;
         hier.set_mesh(V,F);
         hier.grow();
         std::array<int, 4> error_num = check_grad(100);
@@ -334,7 +334,7 @@ TEST_CASE("graident check through finite differences regarding libigl functions"
     tree.init(V,F);
     igl::fast_winding_number(V,F,order,fwn_bvh);
     SECTION("flipping donut:") {
-        igl::WindingNumberAABB<Eigen::RowVector3d,Eigen::MatrixXd,Eigen::MatrixXi> hier;
+        igl::WindingNumberAABB<double, int> hier;
         hier.set_mesh(V,F);
         hier.grow();
         std::array<int, 4> error_num = check_grad(100);
@@ -383,7 +383,7 @@ TEST_CASE("graident check through finite differences regarding libigl functions"
         return {value, gradient};
     };
     SECTION("flipping donut 2:") {
-        igl::WindingNumberAABB<Eigen::RowVector3d,Eigen::MatrixXd,Eigen::MatrixXi> hier;
+        igl::WindingNumberAABB<double, int> hier;
         hier.set_mesh(V,F);
         hier.grow();
         std::array<int, 4> error_num = check_grad(100);
