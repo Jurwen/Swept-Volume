@@ -146,7 +146,7 @@ int main(int argc, const char *argv[])
     };
     
     auto implicit_sweep = [&](Eigen:: RowVector4d data){
-        return flippingDonutFullTurn(data);
+        return flippingDonut(data);
     };
     
 
