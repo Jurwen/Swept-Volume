@@ -15,7 +15,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 include(cli11)
 include(Eigen3)
 include(nlohmann-json)
-include(Marching4DLib)
+Include(Marching4DLib)
 include(nanothread)
 include(mtet)
 include(mtetcol)
@@ -24,7 +24,6 @@ include(convex_hull_membership)
 include(unordered_dense)
 include(smallvector)
 include(libigl)
-include(arrangement)
 include(spdlog)
 
 # project library
@@ -44,8 +43,6 @@ target_link_libraries(adaptive_column_grid
     smallvector::smallvector
     unordered_dense::unordered_dense
     igl::core
-    # arrangement::arrangement
-    # igl::copyleft::cgal
     spdlog::spdlog
     )
 

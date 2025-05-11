@@ -18,7 +18,7 @@ Currently, all the packages dependencies are available.
 
 ## Usage
 
-To use the `general_sweep` tool, you must provide an initial grid file as arguments, along with any desired options. The functions are now hard-coded in `trajectory.h`. Feel free to change it to any lambda function at `implicit_sweep`. 
+To use the `general_sweep` tool, you must provide an initial grid file as arguments, along with any desired options. The functions are now hard-coded in `trajectory.h`. Feel free to change it to any lambda function at `implicit_sweep`.  build
 
 ```bash
 ./general_sweep <grid> <function> [OPTIONS]
