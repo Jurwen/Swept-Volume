@@ -32,7 +32,7 @@ public:
     int time; //int-valued hash; Default largest vert4dList is 1024
     Eigen::RowVector4d coord;
     std::pair<Scalar, Eigen::RowVector4d> valGradList;
-    
+    bool inherit = true;
     vertex4d() = default;
 };
 
@@ -59,7 +59,7 @@ public:
     }
     
     /// To obatin the time stamp at the given index i. For the index being extruded, it will pick the bottom time stamp.
-    int bot(int i){
+    int bot(size_t i){
         if (i == hash[4]){
             return time_list[4];
         }else{
@@ -123,12 +123,10 @@ public:
     /// Given a new 4D vertex, insert it to this column
     /// @param[in] newVert: A new 4D vertex
     /// @return The inserted index
-    int insertTime(vertex4d& newVert) {
+    void insertTime(vertex4d& newVert) {
         // Find the position to insert using binary search
         auto it = std::lower_bound(vert4dList.begin(), vert4dList.end(), newVert, compVertex);
-        int ind = std::distance(vert4dList.begin(), it);
         vert4dList.insert(it, newVert);
-        return ind;
     }
     
     /// find a list of time stamps of the 4D vertices in this column
@@ -139,6 +137,10 @@ public:
             timeList[i] = vert4dList[i].time;
         }
         return timeList;
+    }
+    
+    void sortTime(){
+        std::sort(vert4dList.begin(), vert4dList.end(), compVertex);
     }
 };
 
@@ -155,7 +157,7 @@ public:
 };
 
 /// A mount of a list of 4D vertex column to the 3D vertex
-using vertExtrude = ankerl::unordered_dense::map<uint64_t, vertexCol/*std::vector<vertex4d>*/>;
+using vertExtrude = ankerl::unordered_dense::map<uint64_t, vertexCol>;
 
 /// First, hash four tet vertices into a `uint64_t`
 /// Since the tetid isn't const during the process, mount the boolean using vertexids of 4 corners.
@@ -177,13 +179,14 @@ struct TetEqual
     bool operator()(std::span<mtet::VertexId, 4> const& lhs, std::span<mtet::VertexId, 4> const& rhs)
         const noexcept
     {
-        return lhs[0] == rhs[0] && lhs[1] == rhs[1] && lhs[2] == rhs[2] && lhs[3] == rhs[3];
+        return value_of(lhs[0]) == value_of(rhs[0]) && value_of(lhs[1]) == value_of(rhs[1]) && value_of(lhs[2]) == value_of(rhs[2]) && value_of(lhs[3]) == value_of(rhs[3]);
     }
 };
 
 /// A mount of a list of 4D simplices column
 using tetExtrude = ankerl::unordered_dense::map<std::span<mtet::VertexId, 4>, simpCol, TetHash, TetEqual>;
 
-using tetExtrude_test = ankerl::unordered_dense::map<std::span<mtet::VertexId, 4>, bool, TetHash, TetEqual>;
+/// A mount of a boolean tag to every 3D tet to represent if the column is marked as "inside" of the sweep
+using insidenessMap = ankerl::unordered_dense::map<std::span<mtet::VertexId, 4>, bool, TetHash, TetEqual>;
 
 #endif /* adaptive_column_grid_h */

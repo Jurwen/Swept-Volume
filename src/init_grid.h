@@ -108,6 +108,7 @@ mtet::MTetMesh generate_tet_mesh(const std::array<size_t, 3> &resolution,
     for (auto &t: tets) {
         mesh.add_tet(vertex_ids[t[0]], vertex_ids[t[1]], vertex_ids[t[2]], vertex_ids[t[3]]);
     }
+    mesh.initialize_connectivity();
     return mesh;
 }
 
@@ -204,6 +205,7 @@ mtet::MTetMesh generate_from_kuhn_mesh(const std::array<size_t, 3> &resolution,
                 std::push_heap(Q.begin(), Q.end(), comp);
             } });
     }
+    grid.initialize_connectivity();
     return grid;
 }
 
