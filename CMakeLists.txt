@@ -25,6 +25,7 @@ include(unordered_dense)
 include(smallvector)
 include(libigl)
 include(spdlog)
+include(arrangement)
 
 # project library
 file(GLOB SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/src/*.cpp ${CMAKE_CURRENT_LIST_DIR}/src/*.h)
@@ -44,6 +45,7 @@ target_link_libraries(adaptive_column_grid
     unordered_dense::unordered_dense
     igl::core
     spdlog::spdlog
+    arrangement::arrangement
     )
 
 target_compile_options(mtetcol PRIVATE -Wno-shorten-64-to-32 -Wno-logical-op-parentheses)

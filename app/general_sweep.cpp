@@ -68,7 +68,7 @@ int main(int argc, const char *argv[])
     igl::FastWindingNumberBVH fwn_bvh;
     int order = 2;
     igl::fast_winding_number(V,F,order,fwn_bvh);
-    igl::WindingNumberAABB<Eigen::RowVector3d,Eigen::MatrixXd,Eigen::MatrixXi> hier;
+    igl::WindingNumberAABB<double, int> hier;
     hier.set_mesh(V,F);
     hier.grow();
     /// Definition of the implicit function using explicit meshes
