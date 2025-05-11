@@ -24,6 +24,7 @@ include(convex_hull_membership)
 include(unordered_dense)
 include(smallvector)
 include(libigl)
+include(arrangement)
 include(spdlog)
 
 # project library
@@ -43,7 +44,8 @@ target_link_libraries(adaptive_column_grid
     smallvector::smallvector
     unordered_dense::unordered_dense
     igl::core
-    igl::copyleft::cgal
+    # arrangement::arrangement
+    # igl::copyleft::cgal
     spdlog::spdlog
     )
 
