@@ -132,12 +132,12 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
     /// Initiate queue: timeQ and spaceQ
     auto compTime = [](std::tuple<mtet::Scalar, mtet::TetId, mtet::VertexId, int> timeSub0,
                        std::tuple<mtet::Scalar, mtet::TetId, mtet::VertexId, int> timeSub1)
-    { return std::get<0>(timeSub0) <= std::get<0>(timeSub1); };
+    { return std::get<0>(timeSub0) < std::get<0>(timeSub1); };
     std::vector<std::tuple<mtet::Scalar, mtet::TetId, mtet::VertexId, int>> timeQ;
     
     auto compSpace = [](std::tuple<mtet::Scalar, mtet::TetId, mtet::EdgeId> spaceSub0,
                         std::tuple<mtet::Scalar, mtet::TetId, mtet::EdgeId> spaceSub1)
-    { return std::get<0>(spaceSub0) <= std::get<0>(spaceSub1); };
+    { return std::get<0>(spaceSub0) < std::get<0>(spaceSub1); };
     std::vector<std::tuple<mtet::Scalar, mtet::TetId, mtet::EdgeId>> spaceQ;
     
     
@@ -485,6 +485,6 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
             spatial_splits_timer.Stop();
         }
     }
-    std::cout << temporal_splits << " " << spatial_splits << std::endl;
+    std::cout << "Temporal splits: " << temporal_splits << " Spatial splits " << spatial_splits << std::endl;
     return true;
 }

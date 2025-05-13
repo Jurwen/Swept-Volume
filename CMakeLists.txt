@@ -12,6 +12,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
+set(FAST_ARRANGEMENT_ENABLE_PARALLEL OFF CACHE BOOL "" FORCE)
+set(GEO_ENABLE_THREADS               OFF CACHE BOOL "" FORCE)
+
 include(cli11)
 include(Eigen3)
 include(nlohmann-json)
@@ -28,6 +31,9 @@ include(spdlog)
 include(arrangement)
 
 # project library
+target_compile_options(mtetcol PRIVATE -Wno-shorten-64-to-32 -Wno-logical-op-parentheses)
+set(TBB_STRICT           OFF CACHE BOOL   "" FORCE)
+set(TBB_WARNING_SUPPRESS "-Wno-shorten-64-to-32" CACHE STRING "" FORCE)
 file(GLOB SRC_FILES ${CMAKE_CURRENT_LIST_DIR}/src/*.cpp ${CMAKE_CURRENT_LIST_DIR}/src/*.h)
 add_library(adaptive_column_grid STATIC ${SRC_FILES})
 target_include_directories(adaptive_column_grid PUBLIC
@@ -45,10 +51,8 @@ target_link_libraries(adaptive_column_grid
     unordered_dense::unordered_dense
     igl::core
     spdlog::spdlog
-    arrangement::arrangement
     )
 
-target_compile_options(mtetcol PRIVATE -Wno-shorten-64-to-32 -Wno-logical-op-parentheses)
 
 add_executable(general_sweep "app/general_sweep.cpp")
 
@@ -58,6 +62,7 @@ target_link_libraries(general_sweep PRIVATE
     adaptive_column_grid
     CLI11::CLI11
     Marching4DLib
+    arrangement::arrangement
     )
 
 option(GEN_SWEEP_TESTS "general sweep unit tests" ON)
