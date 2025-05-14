@@ -28,7 +28,7 @@ To use the `general_sweep` tool, you must provide an initial grid file as argume
 
 - `grid` : The path to the initial grid file that will be used for gridgen. This file can either be a `.msh` or `.json` file. 
 Examples of grid files can be found in the `data/grid` directory.
-- `output_path` : This path will create a folder that stores all the output. By default, a `contour.msh` will show the mesh before arrangement; a `0.obj`, `1.obj`, ... will show separated cells with winding number 0. `feature.json` will give all the feature lines (first slot) and points (second slot). 
+- `output_path` : This path will create a folder that stores all the output. By default, a `contour.msh` will show the mesh before arrangement; a `0.obj`, `1.obj`, ... will show separated cells with winding number 0. `features.json` will give all the feature lines (first slot) and points (second slot). 
 
 ### Options
 
