@@ -7,7 +7,7 @@ endif()
 
 project(swept_volume LANGUAGES CXX C)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
@@ -18,18 +18,15 @@ set(GEO_ENABLE_THREADS               OFF CACHE BOOL "" FORCE)
 include(cli11)
 include(Eigen3)
 include(nlohmann-json)
-include(Marching4DLib)
 include(nanothread)
 include(mtet)
 include(mtetcol)
-include(implicit_functions)
-include(convex_hull_membership)
 include(unordered_dense)
 include(smallvector)
 include(libigl)
 include(spdlog)
 include(arrangement)
-# include(imshader)
+include(stf)
 
 # project library
 target_compile_options(mtetcol PRIVATE -Wno-shorten-64-to-32 -Wno-logical-op-parentheses)
@@ -45,8 +42,6 @@ target_link_libraries(adaptive_column_grid
     mtet::mtet 
     mtetcol::mtetcol
     nanothread::nanothread
-    convex_hull_membership
-    implicit_functions::implicit_functions
     nlohmann_json::nlohmann_json
     smallvector::smallvector
     unordered_dense::unordered_dense
@@ -63,8 +58,7 @@ target_sources(general_sweep PRIVATE ${SWEEP_HEADERS})
 target_link_libraries(general_sweep PRIVATE
     adaptive_column_grid
     CLI11::CLI11
-    Marching4DLib
-    # implicit_shader::imshader
+    stf::stf
     arrangement::arrangement
     )
 

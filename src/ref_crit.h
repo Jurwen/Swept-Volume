@@ -9,7 +9,6 @@
 #define ref_crit_h
 
 #include <cmath>
-#include <convex_hull_membership/contains.h>
 
 #include "adaptive_column_grid.h"
 #include "timer.h"

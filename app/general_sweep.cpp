@@ -2,16 +2,13 @@
 #include <queue>
 #include <optional>
 #include <CLI/CLI.hpp>
-#include <Marching4D.h>
 #include <mtet/io.h>
-#include <implicit_functions.h>
 #include <chrono>
 #include <igl/read_triangle_mesh.h>
 #include <igl/signed_distance.h>
 #include <mtetcol/contour.h>
 #include <mtetcol/simplicial_column.h>
 #include <mtetcol/io.h>
-#include <igl/read_triangle_mesh.h>
 #include <igl/write_triangle_mesh.h>
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -119,6 +116,7 @@ int main(int argc, const char *argv[])
     std::string function_file = args.function_file;
     double threshold = args.threshold;
     int rotation = args.rot;
+    const int dim = 4;
     ///
     ///
     ///Grid generation:
@@ -160,27 +158,26 @@ int main(int argc, const char *argv[])
     std::function<std::span<double>(size_t)> values_func = [&](size_t index)->std::span<double>{
         return values[index];
     };
-    mtetcol::SimplicialColumn<4> columns;
+    mtetcol::SimplicialColumn<dim> columns;
     columns.set_vertices(verts);
     columns.set_simplices(simps);
     columns.set_time_samples(time_func, values_func);
     
     auto contour = columns.extract_contour(iso_value, cyclic);
-    int tet_num = 0;
-    for (uint32_t i = 0; i < contour.get_num_polyhedra(); ++i){
-        if (contour.is_polyhedron_regular(i)) tet_num++;
-    }
-    std::cout << contour.get_num_vertices() << " " << contour.get_num_polyhedra() << " " << tet_num << std::endl;
-    // Triangulate cycles if needed
-    contour.triangulate_cycles();
     size_t num_contour_vertices = contour.get_num_vertices();
     std::vector<double> function_values(num_contour_vertices);
+    std::vector<double> gradient_values(num_contour_vertices * dim);
     for (uint32_t i = 0; i < num_contour_vertices; ++i) {
         auto pos = contour.get_vertex(i);
-        function_values[i] = implicit_sweep(Eigen::RowVector4d{pos[0], pos[1], pos[2], pos[3]}).first;
+        auto pos_eval = implicit_sweep(Eigen::RowVector4d{pos[0], pos[1], pos[2], pos[3]});
+        function_values[i] = pos_eval.first;
+        gradient_values[dim * i] = pos_eval.second[0];
+        gradient_values[dim * i + 1] = pos_eval.second[1];
+        gradient_values[dim * i + 2] = pos_eval.second[2];
+        gradient_values[dim * i + 3] = pos_eval.second[3];
     }
     // Extract isocontour
-    auto isocontour = contour.isocontour(function_values);
+    auto isocontour = contour.isocontour(function_values, gradient_values);
     isocontour.triangulate_cycles();
     stopperTime = std::chrono::high_resolution_clock::now();
     auto surface_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
