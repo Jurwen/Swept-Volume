@@ -112,6 +112,8 @@ class vertexCol{
 public:
     using vert4d_list = llvm_vecsmall::SmallVector<vertex4d, 256>;
     using time_list = llvm_vecsmall::SmallVector<int, 256>;
+    using time_list_f = llvm_vecsmall::SmallVector<double, 256>;
+    using value_list = llvm_vecsmall::SmallVector<double, 256>;
     using vertToSimp = llvm_vecsmall::SmallVector<mtet::TetId, 256>;
     
     vert4d_list vert4dList;
@@ -138,6 +140,22 @@ public:
         }
         return timeList;
     }
+    
+    time_list_f getTimeList_f(){
+            time_list_f timeList(vert4dList.size());
+            for (size_t i = 0; i < vert4dList.size(); i++){
+                timeList[i] = vert4dList[i].coord(3);
+            }
+            return timeList;
+        }
+        
+        value_list getValueList(){
+            value_list valList(vert4dList.size());
+            for (size_t i = 0; i < vert4dList.size(); i++){
+                valList[i] = vert4dList[i].valGradList.second[3];
+            }
+            return valList;
+        }
     
     void sortTime(){
         std::sort(vert4dList.begin(), vert4dList.end(), compVertex);

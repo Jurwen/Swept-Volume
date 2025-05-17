@@ -159,8 +159,8 @@ bool bezier4D(
     v4s[0], v4s[1], v4s[2], v4s[3],
     v5s[0], v5s[1], v5s[2], v5s[3],
     face1, face2, face3, face4, face5, face6, face7, face8, face9, face10;
-//    bezier.segment(25, 10) << face1, face2, face3, face4, face5,
-//    face6, face7, face8, face9, face10;
+    //    bezier.segment(25, 10) << face1, face2, face3, face4, face5,
+    //    face6, face7, face8, face9, face10;
     inside = inside || bezier({0,1,2,3,5, 6, 7, 9, 10, 11, 13, 14, 15, 17, 18, 19, 25, 26, 28, 31}).maxCoeff() <= 0;
     inside = inside || bezier({1,2,3,4,10, 11, 12, 14, 15, 16, 18, 19, 20, 22, 23, 24, 31, 32, 33, 34}).maxCoeff() <= 0;
     if (get_sign(bezier.maxCoeff()) == get_sign(bezier.minCoeff())){
@@ -170,7 +170,7 @@ bool bezier4D(
 }
 
 void  adjugate(const Eigen::Matrix<double, 4, 4>& mat,
-                         Eigen::Matrix4d& adjugate) {
+               Eigen::Matrix4d& adjugate) {
     //Eigen::Matrix4d adjugate;
     for (int i = 0; i < 4; ++i) {
         for (int j = 0; j < 4; ++j) {
@@ -273,15 +273,14 @@ bool outHullClip2D(Eigen::Matrix<double, 2, 35> pts){
     return true;
 }
 
-bool refineContour(
-                   const std::array<vertex4d, 5>& verts,
-                   const double threshold,
-                   bool& inside,
-                   bool& choice,
-                   std::array<double, timer_amount>& profileTimer){
-//    Timer push_col(eval_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
-    //std::array<Eigen::RowVector4d, 5> pts;
-//    std::array<double, 5> vals;
+bool refineFt(
+              const std::array<vertex4d, 5>& verts,
+              const double threshold,
+              bool& inside,
+              bool& choice,
+              bool& zeroX,
+              std::array<double, timer_amount>& profileTimer){
+    //    Timer push_col(eval_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
     //Timer first_func_timer([&](auto time){combine_timer(profileTimer, time, first_func);});
     auto& p1 = verts[0].coord;
     auto& p2 = verts[1].coord;
@@ -312,14 +311,9 @@ bool refineContour(
     if (get_sign(bezierGrad.maxCoeff()) == get_sign(bezierGrad.minCoeff())){
         return false;
     }
-    //Timer zeroX_timer([&](auto time){combine_timer(profileTimer, time, ref_crit);});
     Eigen::Matrix<double, 2, 35> nPoints_eigen;
     nPoints_eigen << bezierVals, bezierGrad;
-    //std::array<double, 70> nPoints = parse_convex_points2d(nPoints_eigen);
-    //bool zeroX = convex_hull_membership::contains<2, double>(nPoints, query_2d);
-    bool zeroX = !outHullClip2D(nPoints_eigen);
-//    zeroX_crit_timer.Stop();
-//    Timer distance_crit_timer(distance_crit, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
+    zeroX = !outHullClip2D(nPoints_eigen);
     if (zeroX){
         //return true;
         auto vec1 = p2 - p1, vec2 = p3 - p1, vec3 = p4 - p1, vec4 = p5 - p1;
@@ -327,22 +321,17 @@ bool refineContour(
         vec << vec1, vec2, vec3, vec4;
         Eigen::Matrix4d adj;
         adjugate(vec, adj);
-        std::array<Eigen::RowVector4d, 2> gradList;
-        gradList[0] = Eigen::RowVector4d(v2-v1, v3-v1, v4-v1, v5-v1) * adj;
         auto v21 = bezierGrad[0];
         auto v22 = bezierGrad[1];
         auto v23 = bezierGrad[2];
         auto v24 = bezierGrad[3];
         auto v25 = bezierGrad[4];
-        gradList[1] = Eigen::RowVector4d(v22-v21, v23-v21, v24-v21, v25-v21) * adj;
-        Eigen::Matrix<double, 2, 30> diffList;
-        Eigen::RowVector<double, 30>diff1 = bezierVals.tail(30) - (bezierVals.head(5) * ls.bottomRows(30).transpose()) / 3;
-        Eigen::RowVector<double, 30>diff2 = bezierGrad.tail(30) - (bezierGrad.head(5) * ls.bottomRows(30).transpose()) / 3;
-        diffList << diff1, diff2;
+        Eigen::RowVector4d gradList = Eigen::RowVector4d(v22-v21, v23-v21, v24-v21, v25-v21) * adj;
+        Eigen::RowVector<double, 30> diffList = bezierGrad.tail(30) - (bezierGrad.head(5) * ls.bottomRows(30).transpose()) / 3;
+        //        const double diff = std::amx(diffList.maxCoeff(), -diffList.minCoeff());
         double D = vec.determinant();
-        double gradNorm = (gradList[1][3] * gradList[0] - gradList[0][3] * gradList[1]).norm();
-        Eigen::RowVector<double, 30> error = (Eigen::RowVector2d{gradList[1][3], -1 * gradList[0][3]} * diffList).array().abs();
-        if (std::abs(error.maxCoeff() * D) > std::abs(threshold * gradNorm)){
+        Eigen::RowVector<double, 30> error = (diffList * D / gradList.norm()).array().abs();
+        if (error.maxCoeff() > threshold){
             Eigen::RowVector<double, 16> topFError = error(topFIndices);
             Eigen::RowVector<double, 16> botFError = error(botFIndices);
             choice = std::max(error[3], error[16]) > std::min(topFError.maxCoeff(), botFError.maxCoeff());
@@ -353,33 +342,70 @@ bool refineContour(
     //zeroX_timer.Stop();
     return false;
 }
-
-/// Here begins the subdivision criteria for 3D caps.
-Eigen::Vector<double, 20> bezierConstruct(const Eigen::RowVector4d vals,
-                                          const Eigen::Matrix<double, 4, 3> grads,
-                                          const Eigen::Matrix<double, 3, 6> vec)
+bool bezier3D(
+              const std::array<Eigen::RowVector4d, 4>& pts,
+              const Eigen::RowVector4d& vals,
+              const std::array<Eigen::RowVector4d, 4>& grads,
+              Eigen::RowVector<double, 20>& bezier)
 {
-    Eigen::RowVector3d v0s, v1s, v2s, v3s;
-    v0s = grads.row(0) * vec(Eigen::all, {0, 1, 2}) / 3;
-    v0s.array() += vals(0);
-    v1s =  grads.row(1) * vec(Eigen::all, {3, 4, 0}) / 3;
-    v1s = v1s.asDiagonal() * Eigen::Vector3d({1, 1, -1});
-    v1s.array() += vals(1);
-    v2s = grads.row(2) * vec(Eigen::all, {5, 1, 3}) / 3;
-    v2s = v2s.asDiagonal() * Eigen::Vector3d({1, -1, -1});
-    v2s.array() += vals(2);
-    v3s = grads.row(3) * vec(Eigen::all, {2, 4, 5}) / 3;
-    v3s *= -1;
-    v3s.array() += vals(3);
+    // Decompose inputs
+    auto p1 = pts[0];
+    auto p2 = pts[1];
+    auto p3 = pts[2];
+    auto p4 = pts[3];
     
+    double v1 = vals[0];
+    double v2 = vals[1];
+    double v3 = vals[2];
+    double v4 = vals[3];
     
-    double vMid0 = (9 * (v1s(0) + v1s(1) + v2s(0) + v2s(2) + v3s(1) + v3s(2)) / 6 - vals(1) - vals(2) - vals(3))/ 6;
-    double vMid1 =(9 * (v0s[1] + v0s[2] + v2s[0] + v2s[1] + v3s[0] + v3s[2]) / 6 - vals(0) - vals(2) - vals(3))/ 6;
-    double vMid2 =(9 * (v0s[0] + v0s[2] + v1s[1] + v1s[2] + v3s[0] + v3s[1]) / 6 - vals(0) - vals(1) - vals(3))/ 6;
-    double vMid3 =(9 * (v0s[0] + v0s[1] + v1s[0] + v1s[2] + v2s[1] + v2s[2]) / 6 - vals(0) - vals(1) - vals(2))/ 6;
-    Eigen::RowVector<double, 20> valList;
-    valList << vals, v0s, v1s, v2s, v3s, vMid0, vMid1, vMid2, vMid3;
-    return valList;
+    const auto& g1 = grads[0];
+    const auto& g2 = grads[1];
+    const auto& g3 = grads[2];
+    const auto& g4 = grads[3];
+    
+    // Compute edge values
+    std::array<double, 4> v1s = {
+        v1 + g1.dot(p2 - p1) / 3,
+        v1 + g1.dot(p3 - p1) / 3,
+        v1 + g1.dot(p4 - p1) / 3
+    };
+    
+    std::array<double, 4> v2s = {
+        v2 + g2.dot(p3 - p2) / 3,
+        v2 + g2.dot(p4 - p2) / 3,
+        v2 + g2.dot(p1 - p2) / 3
+    };
+    
+    std::array<double, 4> v3s = {
+        v3 + g3.dot(p4 - p3) / 3,
+        v3 + g3.dot(p1 - p3) / 3,
+        v3 + g3.dot(p2 - p3) / 3
+    };
+    
+    std::array<double, 4> v4s = {
+        v4 + g4.dot(p1 - p4) / 3,
+        v4 + g4.dot(p2 - p4) / 3,
+        v4 + g4.dot(p3 - p4) / 3
+    };
+    // Compute face values
+    double face1 = (9 * (v2s[0] + v2s[1] + v3s[0] + v3s[2] + v4s[1] + v4s[2]) / 6 - v2 - v3 - v4)/ 6;
+    double face2 =(9 * (v1s[1] + v1s[2] + v3s[0] + v3s[1] + v4s[0] + v4s[2]) / 6 - v1 - v3 - v4)/ 6;
+    double face3 =(9 * (v1s[0] + v1s[2] + v2s[1] + v2s[2] + v4s[0] + v4s[1]) / 6 - v1 - v2 - v4)/ 6;
+    double face4 =(9 * (v1s[0] + v1s[1] + v2s[0] + v2s[2] + v3s[1] + v3s[2]) / 6 - v1 - v2 - v3)/ 6;
+    
+    // Combine results into a single row vector
+    bezier << v1, v2, v3, v4,
+    v1s[0], v1s[1], v1s[2],
+    v2s[0], v2s[1], v2s[2],
+    v3s[0], v3s[1], v3s[2],
+    v4s[0], v4s[1], v4s[2],
+    face1, face2, face3, face4;
+    
+    if (get_sign(bezier.maxCoeff()) == get_sign(bezier.minCoeff())){
+        return false;
+    }
+    return true;
 }
 
 /// Construct the value differences between linear interpolations and bezier approximations at 16 bezier control points (excluding control points at tet vertices)
@@ -394,42 +420,31 @@ Eigen::Vector<double, 16> bezierDiff(const Eigen::Vector<double,20> valList)
     return valList.tail(16) - linear_val;
 }
 
-bool refineCap(
-               const std::array<vertex4d, 4> verts,
-               const double threshold,
-               bool& zeroX)
-{
-    Eigen::Matrix<double, 4, 3> pts;
-    std::array<Eigen::RowVector4d,4> tet_info;
-    for (size_t i = 0; i < 4; i++){
-        pts.row(i) = verts[i].coord.head(3);
-        tet_info[i] = Eigen::RowVector4d{verts[i].valGradList.first, verts[i].valGradList.second(0), verts[i].valGradList.second(1), verts[i].valGradList.second(2)};
-    }
-    Eigen::RowVector<double, 20> valList;
-    Eigen::RowVector<double, 16> diffList;
-    Eigen::Vector3d eigenVec1 = pts.row(1) - pts.row(0), eigenVec2 = pts.row(2) - pts.row(0), eigenVec3 = pts.row(3) - pts.row(0), eigenVec4 = pts.row(2) - pts.row(1), eigenVec5 = pts.row(3) - pts.row(1), eigenVec6 = pts.row(3) - pts.row(2);
-    Eigen::Matrix<double, 3, 6> vec;
-    vec << eigenVec1, eigenVec2, eigenVec3, eigenVec4, eigenVec5, eigenVec6;
-    double D = vec.leftCols(3).determinant();
+bool refine3D(std::array<Eigen::RowVector4d, 4> pts,
+              Eigen::RowVector<double, 4> vals,
+              std::array<Eigen::RowVector4d, 4> grads,
+              bool caps,
+              const double threshold){
+    Eigen::RowVector<double, 20> bezierVals;
+    if (!bezier3D(pts, vals, grads, bezierVals)){
+        return false;
+    };
+    Eigen::Vector3d eigenVec1 = pts[1].head(3) - pts[0].head(3), eigenVec2 = pts[2].head(3) - pts[0].head(3), eigenVec3 = pts[3].head(3) - pts[0].head(3);
+    Eigen::Matrix3d vec;
+    vec << eigenVec1, eigenVec2, eigenVec3;
+    double D = vec.determinant();
     double sqD = D*D;
+    //std::cout << vec << std::endl;
     Eigen::Matrix3d crossMatrix;
     crossMatrix << eigenVec2.cross(eigenVec3), eigenVec3.cross(eigenVec1), eigenVec1.cross(eigenVec2);
-    //single function linearity check:
-    Eigen::Matrix4d func_info;
-    func_info << tet_info[0], tet_info[1], tet_info[2], tet_info[3];
-    Eigen::RowVector4d vals = func_info.col(0);
-    Eigen::Matrix<double, 4, 3> grads_eigen = func_info.rightCols(3);
-    valList = bezierConstruct(vals, grads_eigen, vec);
-    if (get_sign(valList.maxCoeff()) != get_sign(valList.minCoeff())){
-        zeroX = true;
-        Eigen::Vector3d unNormF = Eigen::RowVector3d(vals(1)-vals(0), vals(2)-vals(0), vals(3)-vals(0)) * crossMatrix.transpose();
-        diffList = bezierDiff(valList);
-        double error = std::max(diffList.maxCoeff(), -diffList.minCoeff());
-        double lhs = error * error * sqD;
-        double rhs = threshold * threshold * unNormF.squaredNorm();
-        if (lhs > rhs) {
-            return true;
-        }
+    Eigen::Vector3d unNormF = Eigen::RowVector3d(vals(1)-vals(0), vals(2)-vals(0), vals(3)-vals(0)) * crossMatrix.transpose();
+    Eigen::RowVector<double, 16> diffList = bezierDiff(bezierVals);
+    Eigen::RowVector<double, 16> error = (diffList * D / unNormF.norm()).array().abs();
+    //double error = std::max(diffList.maxCoeff(), -diffList.minCoeff());
+    double lhs = error.maxCoeff();;
+    double rhs = threshold;
+    if (lhs > rhs) {
+        return true;
     }
     return false;
 }

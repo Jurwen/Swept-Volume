@@ -49,6 +49,11 @@ int main(int argc, const char *argv[])
         grid = mtet::load_mesh(args.grid_file);
     }
     std::string output_path = args.output_path;
+    int max_splits = args.max_splits;
+    std::string function_file = args.function_file;
+    double threshold = args.threshold;
+    int rotation = args.rot;
+    const int dim = 4;
     Eigen::MatrixXd V;
     Eigen::MatrixXi F;
     igl::AABB<Eigen::MatrixXd,3> tree;
@@ -82,7 +87,6 @@ int main(int argc, const char *argv[])
                 double s,sqrd,sqrd2,s2;
                 Eigen::Matrix3d VRt,Rt;
                 Eigen::RowVector3d xt,vt,pos,c,c2,xyz_grad,point_velocity;
-                int rotation = 1;
                 trajLine3D(t, xt, vt);
                 trajLineRot3D(t, Rt, VRt, rotation);
                 pos = ((Rt.inverse())*((P - xt).transpose())).transpose();
@@ -112,11 +116,6 @@ int main(int argc, const char *argv[])
             return flippingDonut(data);
         };
     }
-    int max_splits = args.max_splits;
-    std::string function_file = args.function_file;
-    double threshold = args.threshold;
-    int rotation = args.rot;
-    const int dim = 4;
     ///
     ///
     ///Grid generation:
@@ -125,11 +124,12 @@ int main(int argc, const char *argv[])
     std::cout << "Start to generate the background grid..." << std::endl;
     std::array<double, timer_amount> profileTimer = {0, 0, 0, 0, 0, 0, 0, 0};
     auto starterTime = std::chrono::high_resolution_clock::now();
+    spdlog::set_level(spdlog::level::off);
     if (!gridRefine(grid, vertexMap, insideMap, implicit_sweep, threshold, max_splits, profileTimer)){
         throw std::runtime_error("ERROR: grid generation failed");
         return 0;
     };
-
+    spdlog::set_level(spdlog::level::info);
     /// save the grid output for discretization tool
     save_mesh_json("grid.json", grid);
     /// write grid and active tets
