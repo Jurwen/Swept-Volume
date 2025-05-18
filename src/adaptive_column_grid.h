@@ -32,7 +32,6 @@ public:
     int time; //int-valued hash; Default largest vert4dList is 1024
     Eigen::RowVector4d coord;
     std::pair<Scalar, Eigen::RowVector4d> valGradList;
-    bool inherit = true;
     vertex4d() = default;
 };
 
@@ -141,6 +140,8 @@ public:
         return timeList;
     }
     
+    /// find a list of time stamps of the 4D vertices in this column
+    /// @return a list of integer-valued time stamp
     time_list_f getTimeList_f(){
             time_list_f timeList(vert4dList.size());
             for (size_t i = 0; i < vert4dList.size(); i++){
@@ -200,9 +201,6 @@ struct TetEqual
         return value_of(lhs[0]) == value_of(rhs[0]) && value_of(lhs[1]) == value_of(rhs[1]) && value_of(lhs[2]) == value_of(rhs[2]) && value_of(lhs[3]) == value_of(rhs[3]);
     }
 };
-
-/// A mount of a list of 4D simplices column
-using tetExtrude = ankerl::unordered_dense::map<std::span<mtet::VertexId, 4>, simpCol, TetHash, TetEqual>;
 
 /// A mount of a boolean tag to every 3D tet to represent if the column is marked as "inside" of the sweep
 using insidenessMap = ankerl::unordered_dense::map<std::span<mtet::VertexId, 4>, bool, TetHash, TetEqual>;

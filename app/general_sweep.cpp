@@ -140,11 +140,8 @@ int main(int argc, const char *argv[])
         return 0;
     };
     spdlog::set_level(spdlog::level::info);
-    /// save the grid output for discretization tool
-    save_mesh_json("grid.json", grid);
     /// write grid and active tets
     mtet::save_mesh("tet_grid.msh", grid);
-    
     
     Scalar iso_value = 0.0;
     bool cyclic = false;
@@ -274,7 +271,6 @@ int main(int argc, const char *argv[])
     for (size_t i = 0; i < out_faces.size(); i++){
         igl::write_triangle_mesh(output_path + "/" + std::to_string(i) + ".obj", out_vertices, out_faces[i]);
     }
-    
     
     return 0;
 }

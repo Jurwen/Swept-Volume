@@ -28,6 +28,7 @@ const Eigen::Matrix<double, 35, 5> ls {
     {0, 1, 0, 1, 1}, {0, 0, 1, 1, 1}
 };
 
+/// Hard coded parameters for taking 
 const std::array<std::array<size_t, 2>, 15> derMatrix {{{0, 8}, {5, 27}, {6, 29}, {7, 30}, {8, 21}, {9, 12}, {25, 32}, {26, 33}, {27, 22}, {13, 16}, {28, 34}, {29, 23}, {17, 20}, {30, 24}, {21, 4}}};
 
 const std::array<std::array<size_t, 5>, 35> elevMatrix {{{0, 15, 15, 15, 15}, {15, 5, 15, 15, 15}, {15, 15, 9, 15, 15}, {15,
@@ -212,9 +213,9 @@ void bezierElev(Eigen::RowVector<double, 16> ords,
 }
 
 
-void  bezierDerOrds(const Eigen::RowVector<double, 35>& ords,
+bool bezierDerOrds(const Eigen::RowVector<double, 35>& ords,
                     const std::array<Eigen::RowVector4d, 5> verts,
-                    Eigen::RowVector<double, 35>& bezier)
+                    Eigen::RowVector<double, 35>& bezierGrad)
 {
     Eigen::RowVector<double, 16> vals;
     double norm = (verts[0] - verts[4]).norm();
@@ -223,7 +224,8 @@ void  bezierDerOrds(const Eigen::RowVector<double, 35>& ords,
         vals[i] = (ords[derMatrix[i][0]] - ords[derMatrix[i][1]]) * 3.0 / norm; // Normalize by the norm of verts
     }
     vals[15] = 0;
-    bezierElev(vals, bezier);
+    bezierElev(vals, bezierGrad);
+    return get_sign(bezierGrad.maxCoeff()) == get_sign(bezierGrad.minCoeff());
 }
 
 std::array<double, 70> parse_convex_points2d(const Eigen::Matrix<double, 2, 35> valList) {
@@ -273,6 +275,7 @@ bool outHullClip2D(Eigen::Matrix<double, 2, 35> pts){
     return true;
 }
 
+/// See header
 bool refineFt(
               const std::array<vertex4d, 5>& verts,
               const double threshold,
@@ -280,8 +283,6 @@ bool refineFt(
               bool& choice,
               bool& zeroX,
               std::array<double, timer_amount>& profileTimer){
-    //    Timer push_col(eval_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
-    //Timer first_func_timer([&](auto time){combine_timer(profileTimer, time, first_func);});
     auto& p1 = verts[0].coord;
     auto& p2 = verts[1].coord;
     auto& p3 = verts[2].coord;
@@ -303,45 +304,44 @@ bool refineFt(
     if (!bezier4D({p1, p2, p3, p4, p5}, {v1, v2, v3, v4, v5}, {g1, g2, g3, g4, g5}, bezierVals, inside)){
         return false;
     };
-    //first_func_timer.Stop();
-    //Timer second_func_timer([&](auto time){combine_timer(profileTimer, time, second_func);});
     Eigen::RowVector<double, 35> bezierGrad;
-    bezierDerOrds(bezierVals, {p1, p2, p3, p4, p5}, bezierGrad);
-    //second_func_timer.Stop();
-    if (get_sign(bezierGrad.maxCoeff()) == get_sign(bezierGrad.minCoeff())){
+    if (bezierDerOrds(bezierVals, {p1, p2, p3, p4, p5}, bezierGrad)){
         return false;
     }
     Eigen::Matrix<double, 2, 35> nPoints_eigen;
     nPoints_eigen << bezierVals, bezierGrad;
     zeroX = !outHullClip2D(nPoints_eigen);
     if (zeroX){
-        //return true;
         auto vec1 = p2 - p1, vec2 = p3 - p1, vec3 = p4 - p1, vec4 = p5 - p1;
         Eigen::Matrix4d vec;
         vec << vec1, vec2, vec3, vec4;
         Eigen::Matrix4d adj;
         adjugate(vec, adj);
-        auto v21 = bezierGrad[0];
-        auto v22 = bezierGrad[1];
-        auto v23 = bezierGrad[2];
-        auto v24 = bezierGrad[3];
-        auto v25 = bezierGrad[4];
-        Eigen::RowVector4d gradList = Eigen::RowVector4d(v22-v21, v23-v21, v24-v21, v25-v21) * adj;
-        Eigen::RowVector<double, 30> diffList = bezierGrad.tail(30) - (bezierGrad.head(5) * ls.bottomRows(30).transpose()) / 3;
-        //        const double diff = std::amx(diffList.maxCoeff(), -diffList.minCoeff());
-        double D = vec.determinant();
-        Eigen::RowVector<double, 30> error = (diffList * D / gradList.norm()).array().abs();
-        if (error.maxCoeff() > threshold){
+        auto v1 = bezierGrad[0];
+        auto v2 = bezierGrad[1];
+        auto v3 = bezierGrad[2];
+        auto v4 = bezierGrad[3];
+        auto v5 = bezierGrad[4];
+        Eigen::RowVector4d gradList = Eigen::RowVector4d(v2-v1, v3-v1, v4-v1, v5-v1) * adj;
+        Eigen::RowVector<double, 30> error = ((bezierGrad.tail(30) - (bezierGrad.head(5) * ls.bottomRows(30).transpose()) / 3) * vec.determinant()).array().abs();
+        if (error.maxCoeff() > threshold * gradList.norm()){
             Eigen::RowVector<double, 16> topFError = error(topFIndices);
             Eigen::RowVector<double, 16> botFError = error(botFIndices);
             choice = std::max(error[3], error[16]) > std::min(topFError.maxCoeff(), botFError.maxCoeff());
-            //zeroX_timer.Stop();
             return true;
         }
     }
-    //zeroX_timer.Stop();
     return false;
 }
+
+/// Construct the values of one function at the bezier control points within a tet.
+///
+/// @param[in] pts          The vertex cooridantes of four tet vertices.
+/// @param[in] vals         The function values at four tet vertices.
+/// @param[in] grads            The total derivative of the functions in x, y, z, t direction at four tet vertices.
+/// @param[out] bezier          The eigen vector of 20 bezier values.
+///
+/// @return         If 20 bezier values contain zero-crossing.
 bool bezier3D(
               const std::array<Eigen::RowVector4d, 4>& pts,
               const Eigen::RowVector4d& vals,
@@ -349,15 +349,15 @@ bool bezier3D(
               Eigen::RowVector<double, 20>& bezier)
 {
     // Decompose inputs
-    auto p1 = pts[0];
-    auto p2 = pts[1];
-    auto p3 = pts[2];
-    auto p4 = pts[3];
+    const auto& p1 = pts[0];
+    const auto& p2 = pts[1];
+    const auto& p3 = pts[2];
+    const auto& p4 = pts[3];
     
-    double v1 = vals[0];
-    double v2 = vals[1];
-    double v3 = vals[2];
-    double v4 = vals[3];
+    const double& v1 = vals[0];
+    const double& v2 = vals[1];
+    const double& v3 = vals[2];
+    const double& v4 = vals[3];
     
     const auto& g1 = grads[0];
     const auto& g2 = grads[1];
@@ -420,29 +420,26 @@ Eigen::Vector<double, 16> bezierDiff(const Eigen::Vector<double,20> valList)
     return valList.tail(16) - linear_val;
 }
 
+/// See header
 bool refine3D(std::array<Eigen::RowVector4d, 4> pts,
               Eigen::RowVector<double, 4> vals,
               std::array<Eigen::RowVector4d, 4> grads,
-              bool caps,
               const double threshold){
     Eigen::RowVector<double, 20> bezierVals;
     if (!bezier3D(pts, vals, grads, bezierVals)){
         return false;
     };
-    Eigen::Vector3d eigenVec1 = pts[1].head(3) - pts[0].head(3), eigenVec2 = pts[2].head(3) - pts[0].head(3), eigenVec3 = pts[3].head(3) - pts[0].head(3);
+    Eigen::Vector3d vec1 = pts[1].head(3) - pts[0].head(3),
+    vec2 = pts[2].head(3) - pts[0].head(3),
+    vec3 = pts[3].head(3) - pts[0].head(3);
     Eigen::Matrix3d vec;
-    vec << eigenVec1, eigenVec2, eigenVec3;
+    vec << vec1, vec2, vec3;
     double D = vec.determinant();
-    double sqD = D*D;
-    //std::cout << vec << std::endl;
     Eigen::Matrix3d crossMatrix;
-    crossMatrix << eigenVec2.cross(eigenVec3), eigenVec3.cross(eigenVec1), eigenVec1.cross(eigenVec2);
+    crossMatrix << vec2.cross(vec3), vec3.cross(vec1), vec1.cross(vec2);
     Eigen::Vector3d unNormF = Eigen::RowVector3d(vals(1)-vals(0), vals(2)-vals(0), vals(3)-vals(0)) * crossMatrix.transpose();
-    Eigen::RowVector<double, 16> diffList = bezierDiff(bezierVals);
-    Eigen::RowVector<double, 16> error = (diffList * D / unNormF.norm()).array().abs();
-    //double error = std::max(diffList.maxCoeff(), -diffList.minCoeff());
-    double lhs = error.maxCoeff();;
-    double rhs = threshold;
+    double lhs = (bezierDiff(bezierVals) * D).array().abs().maxCoeff();
+    double rhs = threshold * unNormF.norm();
     if (lhs > rhs) {
         return true;
     }

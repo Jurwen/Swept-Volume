@@ -122,10 +122,6 @@ void init5CGrid(const int timeDep, mtet::MTetMesh grid, const std::function<std:
     });
 }
 
-bool sign(double x) {
-    return x > 0;
-}
-
 struct spatialEq {
     bool operator()(std::span<const mtet::Scalar,3> a,
                     std::span<const mtet::Scalar,3> b) const noexcept
@@ -147,7 +143,6 @@ void parse_vertices(const mtetcol::Contour<4>& contour,
     const int dim = 3;
     std::span<const mtet::Scalar, dim> spatial_it{ spatial_verts.data(), dim };
     auto num_vertices = contour.get_num_vertices();
-    //std::cout << "column vert start:" << std::endl;
     for (int i = 0 ; i < num_vertices; i++){
         std::span<const mtet::Scalar, 4> pos = contour.get_vertex(i);
         Eigen::Map<const Eigen::RowVector4d> pos_map(pos.data());
@@ -158,10 +153,7 @@ void parse_vertices(const mtetcol::Contour<4>& contour,
             spatial_it = std::span<const mtet::Scalar, 3>(spatial_verts.data() + dim * spatial_ind, dim);
         }
         contour_index.push_back(spatial_ind);
-//        std::cout << i << ": " << pos[0] << " " << pos[1] << " " << pos[2] << " " << pos[3] << std::endl;
-//        std::cout << "index : " << contour_index[i] << " time : " << contour_time[i] << std::endl;
     }
-    //std::cout << "column vert end:" << std::endl;
 }
 
 void parse_polyhedron(const mtetcol::Contour<4>& contour,
@@ -171,7 +163,6 @@ void parse_polyhedron(const mtetcol::Contour<4>& contour,
     vert_id.clear();
     std::vector<mtetcol::Index> vert_ind_tf(contour.get_num_vertices(), false);
     int vt = 0;
-    //std::cout << "### Check polyhedron " << poly_id << " ###" << std::endl;;
     auto poly = contour.get_polyhedron(poly_id);
     for (auto ci : poly) {
         auto cycle = contour.get_cycle(index(ci));
@@ -188,13 +179,8 @@ void parse_polyhedron(const mtetcol::Contour<4>& contour,
                 vert_ind_tf[v1] = true;
                 vert_id.push_back(v1);
             }
-            //std::cout << "Check segment "<< " ({"<< v0 <<"} -> {" << v1 << "})" << std::endl;
         }
     }
-//        for (auto& vi : vert_id){
-//            std::cout << vi << " ";
-//        }
-    //        std::cout << std::endl;
 }
 
 void compare_time(const double tet_time,
@@ -227,16 +213,11 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
                        std::tuple<mtet::Scalar, mtet::TetId, mtet::VertexId, int> timeSub1)
     { return std::get<0>(timeSub0) < std::get<0>(timeSub1); };
     std::vector<std::tuple<mtet::Scalar, mtet::TetId, mtet::VertexId, int>> timeQ;
-    
     auto compSpace = [](std::tuple<mtet::Scalar, mtet::TetId, mtet::EdgeId> spaceSub0,
                         std::tuple<mtet::Scalar, mtet::TetId, mtet::EdgeId> spaceSub1)
     { return std::get<0>(spaceSub0) < std::get<0>(spaceSub1); };
     std::vector<std::tuple<mtet::Scalar, mtet::TetId, mtet::EdgeId>> spaceQ;
     
-    
-    auto queryCell5 = [&](cell5 simp, std::array<vertexCol, 4> vs){
-        
-    };
     int splits = 0, temporal_splits = 0, spatial_splits = 0;
     ///
     /// Push Queue Function:
@@ -289,16 +270,13 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
             verts[4] = baseVerts[lastInd].vert4dList[cell5Index[lastInd] - 1];
             bool inside = false;
             bool choice = false;
-            //            Timer ref_crit_timer(ref_crit, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
             bool zeroX = false;
             bool ret = refineFt(verts, 0.01, inside, choice, zeroX, profileTimer);
             zeroX_list[cell5It] = zeroX;
-            //            ref_crit_timer.Stop();
             if (inside) {
                 insideMap[vs] = true;
                 return;
             }
-            //choice = (verts[0].coord[3] - verts[4].coord[3]) > longest_edge_length;
             if (ret) {
                 subList[cell5It] = true;
                 timeLenList[cell5It] = verts[0].time - verts[4].time;
@@ -364,7 +342,6 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
         std::vector<Eigen::RowVector4d> contour_pos;
         contour_pos.reserve(num_vertices);
         parse_vertices(contour, contour_time, contour_index, contour_pos, spatial_verts);
-        
         for (int i = 0; i < num_polyhedra; i++){
             bool simple = contour.is_polyhedron_regular(i);
             std::vector<mtetcol::Index> vert_id;
@@ -374,13 +351,10 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
             bool caps = false;
             for (auto& vi : vert_id){
                 auto poly_time = contour_time[vi];
-                //std::cout << poly_time;
                 if (poly_time  == 1 || poly_time == 0){
                     caps = true;
                 }
             }
-            
-            //std::cout << "----------" << caps << "--------------" << std::endl;
             if (caps){
                 if (simple){
                     std::array<Eigen::RowVector4d, 4> pts;
@@ -392,7 +366,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
                         vals[vi] = val_grad.first;
                         grads[vi] = val_grad.second;
                     }
-                    if (refine3D(pts, vals, grads, caps, threshold)){
+                    if (refine3D(pts, vals, grads, threshold)){
                         spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
                         std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
                         terminate = true;
@@ -407,10 +381,10 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
                 }
                 int sign = 0;
                 bool intersect = false;
-                auto hash = cell5_index_list[cell5It];
+                auto& hash = cell5_index_list[cell5It];
                 for (auto& vi : vert_id){
-                    auto poly_time = contour_time[vi];
-                    auto poly_ind = contour_index[vi];
+                    auto& poly_time = contour_time[vi];
+                    auto& poly_ind = contour_index[vi];
                     auto tet_time = time[poly_ind][hash[poly_ind]];
                     compare_time(tet_time, poly_time, intersect, sign);
                     if (poly_ind == hash[4]){
@@ -429,7 +403,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
                             vals[vi] = val_grad.first;
                             grads[vi] = val_grad.second;
                         }
-                        if (refine3D(pts, vals, grads, false, threshold)){
+                        if (refine3D(pts, vals, grads, threshold)){
                             spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
                             std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
                             terminate = true;
@@ -528,7 +502,6 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
     while ((!timeQ.empty() || !spaceQ.empty()) && splits < max_splits){
         if (!timeQ.empty()){
             /// temporal subdivision:
-//            Timer temporal_splits_timer(time_splits, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
             std::pop_heap(timeQ.begin(), timeQ.end(), compTime);
             auto [_ , tid, vid, time] = timeQ.back();
             timeQ.pop_back();
@@ -546,35 +519,24 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
             timeList.timeExist[time] = true;
             vertexCol::vertToSimp newTets;
             newTets.reserve(timeList.vertTetAssoc.size());
-//            Timer add_assoc(add_connectivity, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
             for (size_t i = 0; i < timeList.vertTetAssoc.size(); i++){
                 auto assocTet = timeList.vertTetAssoc[i];
                 if (grid.has_tet(assocTet)){
                     newTets.emplace_back(assocTet);
                 }
             }
-//            add_assoc.Stop();
             timeList.vertTetAssoc = newTets;
             vertex4d newVert;
             newVert.time = time;
             newVert.coord = {timeList.vert4dList[0].coord[0], timeList.vert4dList[0].coord[1], timeList.vert4dList[0].coord[2], (double)time / 1024};
-            newVert.inherit = false;
             newVert.valGradList = func(newVert.coord);
             timeList.insertTime(newVert);
             vertexMap[value_of(vid)] = timeList;
             for (size_t i = 0; i < newTets.size(); i++){
-//                std::span<VertexId, 4> newVs = grid.get_tet(newTets[i]);
-//                std::array<uint64_t, 4> quad = {value_of(newVs[0]), value_of(newVs[1]), value_of(newVs[2]), value_of(newVs[3])};
-//                size_t ind = static_cast<int>(std::distance(quad.begin(), std::find(quad.begin(), quad.end(), value_of(vid))));
-//                simpCol::cell5_list cell5Col = sampleCol(newVs, vertexMap);
-//                llvm_vecsmall::SmallVector<size_t, 256> refineList = resampleTimeCol(cell5Col, time, ind);
-//                push_simps(newTets[i], cell5Col, refineList);
                 push_one_col(newTets[i]);
             }
-//            temporal_splits_timer.Stop();
         }else{
             /// spatial subdivision:
-//            Timer spatial_splits_timer(space_splits, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
             std::pop_heap(spaceQ.begin(), spaceQ.end(), compSpace);
             auto [_ , tid, eid] = spaceQ.back();
             spaceQ.pop_back();
@@ -585,7 +547,6 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
             if (insideMap[vs]){
                 continue;
             }
-//            Timer create_vert(init_vert_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
             splits ++;
             spatial_splits++;
             vertexCol newVert;
@@ -610,34 +571,24 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
             }
             newVertCol.vert4dList = vertColList;
             vertexMap[value_of(vid)] = newVertCol;
-//            create_vert.Stop();
             grid.foreach_tet_around_edge(eid0, [&](mtet::TetId t0)
                                          {
                 std::span<VertexId, 4> vs = grid.get_tet(t0);
-//                Timer add_assoc(add_connectivity, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
                 for (size_t i = 0; i < 4; i++){
                     vertexMap[value_of(vs[i])].vertTetAssoc.emplace_back(t0);
                 }
-//                add_assoc.Stop();
-//                Timer add_col_timer(extrude_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
                 insideMap[vs] = false;
-//                add_col_timer.Stop();
                 push_one_col(t0);
             });
             grid.foreach_tet_around_edge(eid1, [&](mtet::TetId t1)
                                          {
                 std::span<VertexId, 4> vs = grid.get_tet(t1);
-//                Timer add_assoc(add_connectivity, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
                 for (size_t i = 0; i < 4; i++){
                     vertexMap[value_of(vs[i])].vertTetAssoc.emplace_back(t1);
                 }
-//                add_assoc.Stop();
-//                Timer add_col_timer(extrude_tet_col, [&](auto profileResult){profileTimer = combine_timer(profileTimer, profileResult);});
                 insideMap[vs] = false;
-//                add_col_timer.Stop();
                 push_one_col(t1);
             });
-//            spatial_splits_timer.Stop();
         }
     }
     std::cout << "Temporal splits: " << temporal_splits << " Spatial splits " << spatial_splits << std::endl;
