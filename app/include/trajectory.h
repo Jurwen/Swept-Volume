@@ -622,8 +622,8 @@ std::pair<Scalar, Eigen::RowVector4d> sphere_spiral(Eigen::RowVector4d inputs) {
 
 
 std::pair<Scalar, Eigen::RowVector4d> knot(Eigen::RowVector4d inputs) {
-    static stf::ImplicitSphere base_shape(0.025, {0.0, 0.0, 0.0});
-    // stf::ImplicitCapsule<3> base_shape(0.01, {0.0, 0.0, 0.0}, {0.1, 0, 0});
+    // static stf::ImplicitSphere base_shape(0.025, {0.0, 0.0, 0.0});
+    static stf::ImplicitCapsule<3> base_shape(0.01, {-0.1, 0.0, 0.0}, {0.1, 0, 0});
     std::vector<std::array<stf::Scalar, 3>> samples{
         {0.4000, 0.0000, 0.0000},    {0.4000, 0.0832, 0.1464},    {0.1708, 0.0915, 0.2424},
         {0.0174, 0.0985, 0.1732},    {-0.1140, 0.1045, 0.1139},   {-0.0335, 0.1510, -0.1139},
