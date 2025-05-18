@@ -534,10 +534,10 @@ std::pair<Scalar, Eigen::RowVector4d> ellipsoidLine(Eigen::RowVector4d inputs) {
 }
 
 std::pair<Scalar, Eigen::RowVector4d> bezier(Eigen::RowVector4d inputs) {
-    stf::ImplicitTorus base_shape(0.07, 0.03, {0.0, 0.0, 0.0});
+    static stf::ImplicitTorus base_shape(0.07, 0.03, {0.0, 0.0, 0.0});
     // stf::ImplicitSphere base_shape(0.07, {0.0, 0.0, 0.0});
-    stf::PolyBezier<3> bezier({{0.2, 0.2, 0.3}, {1.4, 0.8, 0.3}, {-0.4, 0.8, 0.3}, {0.8, 0.2, 0.3}});
-    stf::SweepFunction<3> sweep_function(base_shape, bezier);
+    static stf::PolyBezier<3> bezier({{0.2, 0.2, 0.3}, {1.4, 0.8, 0.3}, {-0.4, 0.8, 0.3}, {0.8, 0.2, 0.3}});
+    static stf::SweepFunction<3> sweep_function(base_shape, bezier);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
@@ -546,9 +546,9 @@ std::pair<Scalar, Eigen::RowVector4d> bezier(Eigen::RowVector4d inputs) {
 
 std::pair<Scalar, Eigen::RowVector4d> elbow(Eigen::RowVector4d inputs) {
     //stf::ImplicitSphere base_shape(0.2, {0.0, 0.0, 0.0});
-    stf::ImplicitTorus base_shape(0.2, 0.05, {0.0, 0.0, 0.0});
-    stf::Polyline<3> polyline({{0.3, 0.3, 0.3}, {0.7, 0.3, 0.3}, {0.7, 0.7, 0.3}});
-    stf::SweepFunction<3> sweep_function(base_shape, polyline);
+    static stf::ImplicitTorus base_shape(0.2, 0.05, {0.0, 0.0, 0.0});
+    static stf::Polyline<3> polyline({{0.3, 0.3, 0.3}, {0.7, 0.3, 0.3}, {0.7, 0.7, 0.3}});
+    static stf::SweepFunction<3> sweep_function(base_shape, polyline);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
@@ -556,13 +556,13 @@ std::pair<Scalar, Eigen::RowVector4d> elbow(Eigen::RowVector4d inputs) {
 }
 
 std::pair<Scalar, Eigen::RowVector4d> blend_sphere_torus(Eigen::RowVector4d inputs) {
-    stf::ImplicitSphere sphere(0.07, {0.0, 0.0, 0.0});
-    stf::ImplicitTorus torus(0.1, 0.04, {0.0, 0.0, 0.0});
-    stf::Polyline<3> polyline({{0.2, 0.5, 0.5}, {0.8, 0.5, 0.5}});
+    static stf::ImplicitSphere sphere(0.07, {0.0, 0.0, 0.0});
+    static stf::ImplicitTorus torus(0.1, 0.04, {0.0, 0.0, 0.0});
+    static stf::Polyline<3> polyline({{0.2, 0.5, 0.5}, {0.8, 0.5, 0.5}});
     // stf::ImplicitSphere base_shape(0.05, {0.0, 0.0, 0.0});
-    stf::SweepFunction<3> sphere_sweep(sphere, polyline);
-    stf::SweepFunction<3> torus_sweep(torus, polyline);
-    stf::InterpolateFunction<3> sweep_function(sphere_sweep, torus_sweep);
+    static stf::SweepFunction<3> sphere_sweep(sphere, polyline);
+    static stf::SweepFunction<3> torus_sweep(torus, polyline);
+    static stf::InterpolateFunction<3> sweep_function(sphere_sweep, torus_sweep);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
@@ -570,15 +570,15 @@ std::pair<Scalar, Eigen::RowVector4d> blend_sphere_torus(Eigen::RowVector4d inpu
 }
 
 std::pair<Scalar, Eigen::RowVector4d> blend_spheres(Eigen::RowVector4d inputs) {
-    stf::ImplicitSphere sphere(0.2, {0.0, 0.0, 0.0}, 2);
-    stf::ImplicitSphere sphere2(0.2, {0.0, 0.3, 0.0}, 2);
-    stf::ImplicitSphere sphere3(0.2, {0.0, -0.3, 0.0}, 2);
-    stf::ImplicitUnion two_spheres(sphere2, sphere3, 0.03);
+    static stf::ImplicitSphere sphere(0.2, {0.0, 0.0, 0.0}, 2);
+    static stf::ImplicitSphere sphere2(0.2, {0.0, 0.3, 0.0}, 2);
+    static stf::ImplicitSphere sphere3(0.2, {0.0, -0.3, 0.0}, 2);
+    static stf::ImplicitUnion two_spheres(sphere2, sphere3, 0.03);
 
-    stf::Polyline<3> polyline({{0.2, 0.5, 0.5}, {0.8, 0.5, 0.5}});
-    stf::SweepFunction<3> sphere_sweep(sphere, polyline);
-    stf::SweepFunction<3> two_sphere_sweep(two_spheres, polyline);
-    stf::InterpolateFunction<3> sweep_function(sphere_sweep, two_sphere_sweep);
+    static stf::Polyline<3> polyline({{0.2, 0.5, 0.5}, {0.8, 0.5, 0.5}});
+    static stf::SweepFunction<3> sphere_sweep(sphere, polyline);
+    static stf::SweepFunction<3> two_sphere_sweep(two_spheres, polyline);
+    static stf::InterpolateFunction<3> sweep_function(sphere_sweep, two_sphere_sweep);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
