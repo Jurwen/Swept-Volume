@@ -19,7 +19,8 @@
 /// @param[out] vertexMap            This maps a 3D vertex to a 4D vertex column. Details of the data structure can be found in `adaptive_column_grid.h`.
 /// @param[out] insideMap         This maps a 3D tet to an inside-ness tag. Details can be found `adaptive_column_grid.h`.
 /// @param[in] func         The implicit function that represents the sweep. It takes in a 4D coordinate and outputs a Scalar of value and a size 4 vector of gradient.
-/// @param[in] threshold            The threshold for the refinement critieria of each 4D simplex.
+/// @param[in] threshold            The threshold for the refinement critieria of shape function.
+/// @param[in] traj_threshold            The threshold for the refinement critieria of time derivative functions.
 /// @param[in] max_splits           Max number of splits of the grid
 /// @param[out] profileTimer            The time profiler. Details can be found in `timer.h`
 bool gridRefine(mtet::MTetMesh &grid,
@@ -27,6 +28,7 @@ bool gridRefine(mtet::MTetMesh &grid,
                 insidenessMap &insideMap,
                 const std::function<std::pair<Scalar, Eigen::RowVector4d>(Eigen::RowVector4d)> func,
                 const double threshold,
+                const double traj_threshold,
                 const int max_splits,
                 std::array<double, timer_amount>& profileTimer);
 

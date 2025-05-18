@@ -26,7 +26,8 @@ int main(int argc, const char *argv[])
         std::string grid_file;
         std::string output_path;
         std::string function_file = "";
-        double threshold = 0.005;
+        double threshold = 0.0005;
+        double traj_threshold = 0.01;
         int max_splits = std::numeric_limits<int>::max();
         int rot = 0;
     } args;
@@ -35,6 +36,7 @@ int main(int argc, const char *argv[])
     app.add_option("output", args.output_path, "Output path")->required();
     app.add_option("-f,--function", args.function_file, "Implicit function file");
     app.add_option("-t,--threshold", args.threshold, "Threshold value");
+    app.add_option("--tt, --traj_threshold", args.traj_threshold, "Threshold value for trajectory");
     app.add_option("-m,--max-splits", args.max_splits, "Maximum number of splits");
     app.add_option("-r,--rotation-number", args.rot, "Number of rotations");
     
@@ -52,6 +54,7 @@ int main(int argc, const char *argv[])
     int max_splits = args.max_splits;
     std::string function_file = args.function_file;
     double threshold = args.threshold;
+    double traj_threshold = args.traj_threshold;
     int rotation = args.rot;
     const int dim = 4;
     Eigen::MatrixXd V;
@@ -135,7 +138,7 @@ int main(int argc, const char *argv[])
     std::array<double, timer_amount> profileTimer = {0, 0, 0, 0, 0, 0, 0, 0};
     auto starterTime = std::chrono::high_resolution_clock::now();
     spdlog::set_level(spdlog::level::off);
-    if (!gridRefine(grid, vertexMap, insideMap, implicit_sweep, threshold, max_splits, profileTimer)){
+    if (!gridRefine(grid, vertexMap, insideMap, implicit_sweep, threshold, traj_threshold, max_splits, profileTimer)){
         throw std::runtime_error("ERROR: grid generation failed");
         return 0;
     };

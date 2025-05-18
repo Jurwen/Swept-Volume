@@ -205,8 +205,8 @@ void compare_time(const double tet_time,
 
 std::vector<uint32_t> one_column_simp = {0, 1, 2, 3};
 
-bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &insideMap, const std::function<std::pair<Scalar, Eigen::RowVector4d>(Eigen::RowVector4d)> func, const double threshold, const int max_splits, std::array<double, timer_amount>& profileTimer){
-    init5CGrid(3, grid, func, 1024, vertexMap);
+bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &insideMap, const std::function<std::pair<Scalar, Eigen::RowVector4d>(Eigen::RowVector4d)> func, const double threshold, const double traj_threshold, const int max_splits, std::array<double, timer_amount>& profileTimer){
+    init5CGrid(7, grid, func, 1024, vertexMap);
     ///
     /// Initiate queue: timeQ and spaceQ
     auto compTime = [](std::tuple<mtet::Scalar, mtet::TetId, mtet::VertexId, int> timeSub0,
@@ -271,7 +271,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
             bool inside = false;
             bool choice = false;
             bool zeroX = false;
-            bool ret = refineFt(verts, 0.01, inside, choice, zeroX, profileTimer);
+            bool ret = refineFt(verts, traj_threshold, inside, choice, zeroX, profileTimer);
             zeroX_list[cell5It] = zeroX;
             if (inside) {
                 insideMap[vs] = true;
@@ -464,7 +464,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
             bool inside = false;
             bool choice = false;
             bool zeroX = false;
-            bool ret = refineFt(verts, 0.01, inside, choice, zeroX, profileTimer);
+            bool ret = refineFt(verts, traj_threshold, inside, choice, zeroX, profileTimer);
             if (inside) {
                 insideMap[vs] = true;
                 return;
