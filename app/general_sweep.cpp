@@ -29,6 +29,7 @@ int main(int argc, const char *argv[])
         double threshold = 0.005;
         int max_splits = std::numeric_limits<int>::max();
         int rot = 0;
+        bool without_snapping = false;
     } args;
     CLI::App app{"Generalized Swept Volume"};
     app.add_option("grid", args.grid_file, "Initial grid file")->required();
@@ -37,6 +38,7 @@ int main(int argc, const char *argv[])
     app.add_option("-t,--threshold", args.threshold, "Threshold value");
     app.add_option("-m,--max-splits", args.max_splits, "Maximum number of splits");
     app.add_option("-r,--rotation-number", args.rot, "Number of rotations");
+    app.add_flag("--without-snapping", args.without_snapping, "Disable vertex snapping in iso-surfacing step");
     
     CLI11_PARSE(app, argc, argv);
     // Read initial grid
@@ -117,6 +119,8 @@ int main(int argc, const char *argv[])
             implicit_sweep = blend_sphere_torus;
         } else if (args.function_file == "sphere_spiral") {
             implicit_sweep = sphere_spiral;
+        } else if (args.function_file == "knot") {
+            implicit_sweep = knot;
         } else {
             throw std::runtime_error("ERROR: file format not supported");
         }
@@ -187,7 +191,7 @@ int main(int argc, const char *argv[])
         gradient_values[dim * i + 3] = pos_eval.second[3];
     }
     // Extract isocontour
-    auto isocontour = contour.isocontour(function_values, gradient_values);
+    auto isocontour = contour.isocontour(function_values, gradient_values, !args.without_snapping);
     isocontour.triangulate_cycles();
     stopperTime = std::chrono::high_resolution_clock::now();
     auto surface_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
