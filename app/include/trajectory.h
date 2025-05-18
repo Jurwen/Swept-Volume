@@ -620,4 +620,35 @@ std::pair<Scalar, Eigen::RowVector4d> sphere_spiral(Eigen::RowVector4d inputs) {
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
+
+std::pair<Scalar, Eigen::RowVector4d> knot(Eigen::RowVector4d inputs) {
+    static stf::ImplicitSphere base_shape(0.025, {0.0, 0.0, 0.0});
+    // stf::ImplicitCapsule<3> base_shape(0.01, {0.0, 0.0, 0.0}, {0.1, 0, 0});
+    std::vector<std::array<stf::Scalar, 3>> samples{
+        {0.4000, 0.0000, 0.0000},    {0.4000, 0.0832, 0.1464},    {0.1708, 0.0915, 0.2424},
+        {0.0174, 0.0985, 0.1732},    {-0.1140, 0.1045, 0.1139},   {-0.0335, 0.1510, -0.1139},
+        {-0.0940, 0.0342, -0.1732},  {-0.1646, -0.1021, -0.2424}, {-0.2721, -0.3048, -0.1464},
+        {-0.2000, -0.3464, -0.0000}, {-0.1279, -0.3880, 0.1464},  {-0.0062, -0.1936, 0.2424},
+        {0.0766, -0.0643, 0.1732},   {0.1475, 0.0465, 0.1139},    {0.1475, -0.0465, -0.1139},
+        {0.0766, 0.0643, -0.1732},   {-0.0062, 0.1936, -0.2424},  {-0.1279, 0.3880, -0.1464},
+        {-0.2000, 0.3464, -0.0000},  {-0.2721, 0.3048, 0.1464},   {-0.1646, 0.1021, 0.2424},
+        {-0.0940, -0.0342, 0.1732},  {-0.0335, -0.1510, 0.1139},  {-0.1140, -0.1045, -0.1139},
+        {0.0174, -0.0985, -0.1732},  {0.1708, -0.0915, -0.2424},  {0.4000, -0.0832, -0.1464},
+        {0.4000, 0.0000, 0.0000},
+    };
+    for (auto& p : samples) {
+        p[0] += 0.5;
+        p[1] += 0.5;
+        p[2] += 0.5;
+    }
+    static auto curve = stf::PolyBezier<3>(samples);
+    //auto curve = stf::Polyline<3>(samples);
+    static stf::SweepFunction<3> sweep_function(base_shape, curve);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+
 #endif /* trajectory_h */
