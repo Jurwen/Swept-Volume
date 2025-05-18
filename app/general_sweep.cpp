@@ -31,6 +31,7 @@ int main(int argc, const char *argv[])
         int max_splits = std::numeric_limits<int>::max();
         int rot = 0;
         bool without_snapping = false;
+        bool without_opt_triangulation = false;
     } args;
     CLI::App app{"Generalized Swept Volume"};
     app.add_option("grid", args.grid_file, "Initial grid file")->required();
@@ -41,6 +42,8 @@ int main(int argc, const char *argv[])
     app.add_option("-m,--max-splits", args.max_splits, "Maximum number of splits");
     app.add_option("-r,--rotation-number", args.rot, "Number of rotations");
     app.add_flag("--without-snapping", args.without_snapping, "Disable vertex snapping in iso-surfacing step");
+    app.add_flag("--without-optimal-triangulation", args.without_opt_triangulation,
+            "Disable optimal triangulation in iso-surfacing triangulation step");
     
     CLI11_PARSE(app, argc, argv);
     // Read initial grid
@@ -192,7 +195,7 @@ int main(int argc, const char *argv[])
     }
     // Extract isocontour
     auto isocontour = contour.isocontour(function_values, gradient_values, !args.without_snapping);
-    isocontour.triangulate_cycles();
+    isocontour.triangulate_cycles(args.without_opt_triangulation);
     stopperTime = std::chrono::high_resolution_clock::now();
     auto surface_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
     std::cout << "Surfacing time: " << (surface_end - grid_end) * 0.000001 << std::endl;
