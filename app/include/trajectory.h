@@ -13,6 +13,7 @@
 #include <igl/read_triangle_mesh.h>
 #include <igl/write_triangle_mesh.h>
 #include <igl/signed_distance.h>
+#include <stf/stf.h>
 
 void trajLine3D(double t, Eigen::RowVector3d& xt, Eigen::RowVector3d& vt) {
     // Define the fixed vectors
@@ -531,4 +532,92 @@ std::pair<Scalar, Eigen::RowVector4d> ellipsoidLine(Eigen::RowVector4d inputs) {
     // Return the value and gradient as a pair
     return {value, gradient};
 }
+
+std::pair<Scalar, Eigen::RowVector4d> bezier(Eigen::RowVector4d inputs) {
+    static stf::ImplicitTorus base_shape(0.07, 0.03, {0.0, 0.0, 0.0});
+    // stf::ImplicitSphere base_shape(0.07, {0.0, 0.0, 0.0});
+    static stf::PolyBezier<3> bezier({{0.2, 0.2, 0.3}, {1.4, 0.8, 0.3}, {-0.4, 0.8, 0.3}, {0.8, 0.2, 0.3}});
+    static stf::SweepFunction<3> sweep_function(base_shape, bezier);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> elbow(Eigen::RowVector4d inputs) {
+    //stf::ImplicitSphere base_shape(0.2, {0.0, 0.0, 0.0});
+    static stf::ImplicitTorus base_shape(0.2, 0.05, {0.0, 0.0, 0.0});
+    static stf::Polyline<3> polyline({{0.3, 0.3, 0.3}, {0.7, 0.3, 0.3}, {0.7, 0.7, 0.3}});
+    static stf::SweepFunction<3> sweep_function(base_shape, polyline);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> blend_sphere_torus(Eigen::RowVector4d inputs) {
+    static stf::ImplicitSphere sphere(0.07, {0.0, 0.0, 0.0});
+    static stf::ImplicitTorus torus(0.1, 0.04, {0.0, 0.0, 0.0});
+    static stf::Polyline<3> polyline({{0.2, 0.5, 0.5}, {0.8, 0.5, 0.5}});
+    // stf::ImplicitSphere base_shape(0.05, {0.0, 0.0, 0.0});
+    static stf::SweepFunction<3> sphere_sweep(sphere, polyline);
+    static stf::SweepFunction<3> torus_sweep(torus, polyline);
+    static stf::InterpolateFunction<3> sweep_function(sphere_sweep, torus_sweep);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> blend_spheres(Eigen::RowVector4d inputs) {
+    static stf::ImplicitSphere sphere(0.2, {0.0, 0.0, 0.0}, 2);
+    static stf::ImplicitSphere sphere2(0.2, {0.0, 0.3, 0.0}, 2);
+    static stf::ImplicitSphere sphere3(0.2, {0.0, -0.3, 0.0}, 2);
+    static stf::ImplicitUnion two_spheres(sphere2, sphere3, 0.03);
+
+    static stf::Polyline<3> polyline({{0.2, 0.5, 0.5}, {0.8, 0.5, 0.5}});
+    static stf::SweepFunction<3> sphere_sweep(sphere, polyline);
+    static stf::SweepFunction<3> two_sphere_sweep(two_spheres, polyline);
+    static stf::InterpolateFunction<3> sweep_function(sphere_sweep, two_sphere_sweep);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+
+std::pair<Scalar, Eigen::RowVector4d> sphere_spiral(Eigen::RowVector4d inputs) {
+    static stf::ImplicitSphere sphere(0.05, {0.0, 0.0, 0.0});
+    // clang-format off
+    static auto polybezier = stf::PolyBezier<3>::from_samples({
+        { 0.500000, 0.050000, 0.500000},
+        { 0.522888, 0.056137, 0.570442},
+        { 0.381791, 0.074382, 0.585884},
+        { 0.326728, 0.104237, 0.374110},
+        { 0.585411, 0.144887, 0.237132},
+        { 0.831076, 0.195223, 0.500000},
+        { 0.616414, 0.253873, 0.858287},
+        { 0.166606, 0.319237, 0.742225},
+        { 0.147082, 0.389532, 0.243590},
+        { 0.638583, 0.462839, 0.073486},
+        { 0.948463, 0.537161, 0.500000},
+        { 0.634803, 0.610468, 0.914880},
+        { 0.166606, 0.680763, 0.742225},
+        { 0.195223, 0.746127, 0.278567},
+        { 0.602308, 0.804777, 0.185128},
+        { 0.776396, 0.855113, 0.500000},
+        { 0.566184, 0.895763, 0.703694},
+        { 0.381791, 0.925618, 0.585884},
+        { 0.440078, 0.943863, 0.456464},
+        { 0.500000, 0.950000, 0.500000},
+        { 0.425932, 0.943863, 0.500000},
+    });
+    // clang-format on
+    static stf::SweepFunction<3> sweep_function(sphere, polybezier);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
 #endif /* trajectory_h */

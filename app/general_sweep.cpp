@@ -107,6 +107,16 @@ int main(int argc, const char *argv[])
                 //std::cout << s * cp.dot(point_velocity) << std::endl;
                 return {value, gradient};
             };
+        } else if (args.function_file == "elbow") {
+            implicit_sweep = elbow;
+        } else if (args.function_file == "bezier") {
+            implicit_sweep = bezier;
+        } else if (args.function_file == "blend_spheres") {
+            implicit_sweep = blend_spheres;
+        } else if (args.function_file == "blend_sphere_torus") {
+            implicit_sweep = blend_sphere_torus;
+        } else if (args.function_file == "sphere_spiral") {
+            implicit_sweep = sphere_spiral;
         } else {
             throw std::runtime_error("ERROR: file format not supported");
         }
@@ -199,6 +209,8 @@ int main(int argc, const char *argv[])
             }
         }
     }
+    contour.triangulate_cycles();
+    mtetcol::save_contour(output_path + "/temporal_grid.obj", contour);
     mtetcol::save_contour(output_path + "/contour.msh", isocontour);
     
     
