@@ -195,10 +195,7 @@ int main(int argc, const char *argv[])
     }
     // Extract isocontour
     auto isocontour = contour.isocontour(function_values, gradient_values, !args.without_snapping);
-    isocontour.triangulate_cycles(args.without_opt_triangulation);
-    stopperTime = std::chrono::high_resolution_clock::now();
-    auto surface_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
-    std::cout << "Surfacing time: " << (surface_end - grid_end) * 0.000001 << std::endl;
+    isocontour.triangulate_cycles(!args.without_opt_triangulation);
     if (!std::filesystem::exists(output_path)) {
         // Attempt to create the directory
         if (std::filesystem::create_directory(output_path)) {
@@ -216,10 +213,11 @@ int main(int argc, const char *argv[])
             }
         }
     }
-    contour.triangulate_cycles();
+    stopperTime = std::chrono::high_resolution_clock::now();
+    auto surface_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
     mtetcol::save_contour(output_path + "/temporal_grid.obj", contour);
     mtetcol::save_contour(output_path + "/contour.msh", isocontour);
-    
+    std::cout << "Surfacing time: " << (surface_end - grid_end) * 0.000001 << std::endl;
     
     /// Mathematica isosurfacing output:
     std::vector<std::array<double, 3>> verts_math;

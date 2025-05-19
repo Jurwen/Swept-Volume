@@ -144,11 +144,6 @@ void compute_sweep_volume(const arrangement::MatrixFr& vertices, const arrangeme
     int num_cells = engine->get_num_cells();
     int num_patches = engine->get_num_patches();
     int num_facets = arrangement_faces.rows();
-    //size_t num_cells = engine->get_num_cells();
-    std::cout << "num_cells: " << num_cells << std::endl;
-    std::cout << "num_patches: " << num_patches << std::endl;
-    std::cout << "num_vertices: " << engine->get_vertices().rows() << std::endl;
-    std::cout << "num_faces: " << arrangement_faces.rows() << std::endl;
     std::vector<int> wind_list(num_cells);
     std::vector<double> volInfo(num_cells);
     std::vector<size_t> cellIt;
@@ -311,6 +306,10 @@ void compute_sweep_volume(const arrangement::MatrixFr& vertices, const arrangeme
             corners.push_back({out_vertices(i, 0), out_vertices(i, 1), out_vertices(i, 2)});
         }
     }
+    std::cout << "# Verts: " << engine->get_vertices().rows() << std::endl;
+    std::cout << "# Tris: " << arrangement_faces.rows() << std::endl;
+    std::cout << "patches: " << num_patches << std::endl;
+    std::cout << "cells: " << num_cells << std::endl;
     std::string feature_lines_file = output_path + "/features.json";
     if (std::filesystem::exists(feature_lines_file.c_str())){
         std::filesystem::remove(feature_lines_file.c_str());
