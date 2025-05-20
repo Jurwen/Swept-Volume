@@ -620,6 +620,40 @@ std::pair<Scalar, Eigen::RowVector4d> sphere_spiral(Eigen::RowVector4d inputs) {
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
+std::pair<Scalar, Eigen::RowVector4d> brush_stroke(Eigen::RowVector4d inputs) {
+    static stf::ImplicitSphere base_shape(0.045, {0.0, 0.0, 0.0});
+
+    // clang-format off
+    static std::vector<std::array<stf::Scalar, 3>> samples{
+        {0.3090, 0.6504, 0.5},
+        {0.3074, 0.6294, 0.5},
+        {0.3000, 0.5009, 0.5},
+        {0.3934, 0.4126, 0.5},
+        {0.4897, 0.3216, 0.5},
+        {0.6325, 0.3306, 0.5},
+        {0.6360, 0.3432, 0.5},
+        {0.6389, 0.3537, 0.5},
+        {0.5428, 0.3618, 0.5},
+        {0.4755, 0.4415, 0.5},
+        {0.3973, 0.5340, 0.5},
+        {0.4045, 0.6679, 0.5},
+        {0.4223, 0.6732, 0.5},
+        {0.4402, 0.6784, 0.5},
+        {0.4594, 0.5506, 0.5},
+        {0.5693, 0.4865, 0.5},
+        {0.6152, 0.4597, 0.5},
+        {0.6628, 0.4525, 0.5},
+        {0.7000, 0.4514, 0.5},
+    };
+    // clang-format on
+    static stf::PolyBezier<3> transform(samples, false);
+    static stf::SweepFunction<3> sweep_function(base_shape, transform);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
 
 std::pair<Scalar, Eigen::RowVector4d> knot(Eigen::RowVector4d inputs) {
     // static stf::ImplicitSphere base_shape(0.025, {0.0, 0.0, 0.0});
