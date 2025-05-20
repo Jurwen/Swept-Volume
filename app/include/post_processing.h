@@ -326,8 +326,6 @@ void compute_sweep_volume(const arrangement::MatrixFr& vertices, const arrangeme
     json jOut;
     jOut["chains"] = feature_lines;
     jOut["joints"] = corners;
-//    jOut.push_back(json(feature_lines));
-//    jOut.push_back(json(corners));
     fout << jOut.dump(4, ' ', true, json::error_handler_t::replace) << std::endl;
     fout.close();
 }
