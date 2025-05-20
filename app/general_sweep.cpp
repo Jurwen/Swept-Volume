@@ -110,7 +110,7 @@ int main(int argc, const char *argv[])
                 cp.normalize();
                 //std::cout << cp << std::endl;
                 xyz_grad  = (-s) * cp * Rt.inverse();
-                gradient << xyz_grad;
+                gradient.template head<3>() << xyz_grad;
                 //std::cout << xyz_grad << std::endl;
                 point_velocity = (-Rt.inverse()*VRt*Rt.inverse()*(P.transpose() - xt.transpose()) - Rt.inverse()*vt.transpose()).transpose();
                 gradient(3) =  (-s) * cp.dot(point_velocity);
@@ -129,6 +129,8 @@ int main(int argc, const char *argv[])
             implicit_sweep = sphere_spiral;
         } else if (args.function_file == "knot") {
             implicit_sweep = knot;
+        } else if (args.function_file == "brush_stroke") {
+            implicit_sweep = brush_stroke;
         } else {
             throw std::runtime_error("ERROR: file format not supported");
         }
