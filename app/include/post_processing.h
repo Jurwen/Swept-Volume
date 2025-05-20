@@ -11,7 +11,7 @@
 #include <utility>   // for std::pair
 #include <limits>    // for std::numeric_limits
 #include <arrangement/Arrangement.h>
-const double threshold = 1e-4;
+const double threshold = 1e-5;
 
 struct PairHasher {
     std::size_t operator()(const std::pair<int,int>& p) const noexcept {
@@ -206,6 +206,11 @@ void compute_sweep_volume(const arrangement::MatrixFr& vertices, const arrangeme
     const auto& prunedInfo2 = computeValidPatch(num_cells, volInfo, cell_data);
     std::vector<bool> valid_patchInd = prunedInfo2.first;
     std::vector<int> cell_merge_map = prunedInfo2.second;
+//    std::vector<bool> valid_patchInd (cell_data.size(), true);
+//    std::vector<int> cell_merge_map (num_cells, -1);
+//    for (int i = 0; i < num_cells; i++){
+//        cell_merge_map[i] = i;
+//    }
     
     std::vector<std::array<std::array<double, 3>, 2>> feature_lines;
     std::vector<std::array<double, 3>> corners;
@@ -274,12 +279,14 @@ void compute_sweep_volume(const arrangement::MatrixFr& vertices, const arrangeme
     std::vector<std::pair<size_t, bool>> patch_list;
     for (size_t i = 0; i < cellIt.size(); ++i){
         auto current_cell = cell_merge_map[cellIt[i]];
+//        auto current_cell = cellIt[i];
         arrangement::MatrixIr patch_faces;
         patch_faces.resize(arrangement_faces.rows(), 3);
         size_t face_count = 0;
         for (size_t f = 0; f < num_facets; ++f){
             auto patch_id = patches(f);
             auto c0 = cell_merge_map[cell_data(patch_id, 0)], c1 = cell_merge_map[cell_data(patch_id, 1)];
+//            auto c0 = cell_data(patch_id, 0), c1 = cell_data(patch_id, 1);
             if ((c0 == current_cell && c1 != current_cell) || (c1 == current_cell && c0 != current_cell)){
                 if (c0 == current_cell){
                     patch_faces.row(face_count) = (arrangement_faces.row(f));
@@ -317,8 +324,10 @@ void compute_sweep_volume(const arrangement::MatrixFr& vertices, const arrangeme
     using json = nlohmann::json;
     std::ofstream fout(feature_lines_file.c_str(),std::ios::app);
     json jOut;
-    jOut.push_back(json(feature_lines));
-    jOut.push_back(json(corners));
+    jOut["chains"] = feature_lines;
+    jOut["joints"] = corners;
+//    jOut.push_back(json(feature_lines));
+//    jOut.push_back(json(corners));
     fout << jOut.dump(4, ' ', true, json::error_handler_t::replace) << std::endl;
     fout.close();
 }

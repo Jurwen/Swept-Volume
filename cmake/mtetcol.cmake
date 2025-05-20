@@ -6,7 +6,7 @@ include(FetchContent)
 FetchContent_Declare(
     mtetcol
     GIT_REPOSITORY git@github.com:qnzhou/mtetcol.git
-    GIT_TAG v0.0.9
+    GIT_TAG main
     )
 
 FetchContent_MakeAvailable(mtetcol)

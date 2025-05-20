@@ -19,6 +19,8 @@
 #include "post_processing.h"
 #include "timer.h"
 
+//#define SAVE_CONTOUR;
+
 int main(int argc, const char *argv[])
 {
     struct
@@ -215,9 +217,11 @@ int main(int argc, const char *argv[])
     }
     stopperTime = std::chrono::high_resolution_clock::now();
     auto surface_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
+    std::cout << "Surfacing time: " << (surface_end - grid_end) * 0.000001 << std::endl;
+    
+#ifdef SAVE_CONTOUR
     mtetcol::save_contour(output_path + "/temporal_grid.obj", contour);
     mtetcol::save_contour(output_path + "/contour.msh", isocontour);
-    std::cout << "Surfacing time: " << (surface_end - grid_end) * 0.000001 << std::endl;
     
     /// Mathematica isosurfacing output:
     std::vector<std::array<double, 3>> verts_math;
@@ -243,7 +247,7 @@ int main(int argc, const char *argv[])
     fout << jOut.dump(4, ' ', true, json::error_handler_t::replace) << std::endl;
     fout.close();
     /// End of Mathematica output
-    
+#endif
     arrangement::MatrixFr vertices;    // nx3 Vertex matrix
     arrangement::MatrixIr faces;       // mx3 Face matrix
     size_t num_vertices = isocontour.get_num_vertices();

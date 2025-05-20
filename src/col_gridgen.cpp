@@ -206,7 +206,7 @@ void compare_time(const double tet_time,
 std::vector<uint32_t> one_column_simp = {0, 1, 2, 3};
 
 bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &insideMap, const std::function<std::pair<Scalar, Eigen::RowVector4d>(Eigen::RowVector4d)> func, const double threshold, const double traj_threshold, const int max_splits, std::array<double, timer_amount>& profileTimer){
-    init5CGrid(7, grid, func, 1024, vertexMap);
+    init5CGrid(3, grid, func, 1024, vertexMap);
     ///
     /// Initiate queue: timeQ and spaceQ
     auto compTime = [](std::tuple<mtet::Scalar, mtet::TetId, mtet::VertexId, int> timeSub0,
@@ -409,7 +409,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
                             terminate = true;
                         }
                     }
-                    else if (longest_edge_length > threshold * 0.1){
+                    else if (40 * longest_edge_length > threshold){
                         spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
                         std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
                         terminate = true;
