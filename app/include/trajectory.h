@@ -697,5 +697,59 @@ std::pair<Scalar, Eigen::RowVector4d> knot(Eigen::RowVector4d inputs) {
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
+std::pair<Scalar, Eigen::RowVector4d> concentric_rings(Eigen::RowVector4d inputs) {
+    stf::ImplicitSphere sphere1(0.05, {0.6, 0.5, 0.5});
+    stf::ImplicitSphere sphere2(0.05, {0.71, 0.5, 0.5});
+    stf::ImplicitUnion base_shape(sphere1, sphere2);
+
+    stf::Rotation<3> rotation({0.5, 0.5, 0.5}, {0, 0, 1});
+    stf::SweepFunction<3> sweep_function(base_shape, rotation);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> spinning_rod(Eigen::RowVector4d inputs) {
+    static stf::ImplicitCapsule<3> rod(0.02, {0.5, 0.5, 0.5}, {0.7, 0.5, 0.5});
+
+    static stf::Rotation<3> spin({0.6, 0.5, 0.5}, {0, 1, 0}, 360 * 3);
+    static stf::Rotation<3> rotation({0.5, 0.5, 0.5}, {0, 0, 1});
+    static stf::Compose<3> transform(rotation, spin);
+    static stf::SweepFunction<3> sweep_function(rod, transform);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> letter_L(Eigen::RowVector4d inputs) {
+    static stf::ImplicitSphere sphere(0.04, {0.0, 0.0, 0.0});
+    static stf::PolyBezier<3> curve(
+        {
+            {0.6941, 0.4189, 0.5}, {0.6457, 0.3864, 0.5}, {0.5952, 0.3504, 0.5},
+            {0.5448, 0.3504, 0.5}, {0.5076, 0.3504, 0.5}, {0.4752, 0.3696, 0.49},
+            {0.4447, 0.3899, 0.48}, {0.4110, 0.4126, 0.49}, {0.3755, 0.4392, 0.5},
+            {0.3422, 0.4392, 0.5}, {0.3180, 0.4392, 0.5}, {0.3000, 0.4204, 0.5},
+            {0.3000, 0.3993, 0.5}, {0.3000, 0.3782, 0.5}, {0.3192, 0.3555, 0.5},
+            {0.3567, 0.3555, 0.5}, {0.3893, 0.3555, 0.5}, {0.4193, 0.3729, 0.5},
+            {0.4439, 0.3966, 0.5}, {0.4670, 0.4196, 0.5}, {0.5081, 0.4804, 0.5},
+            {0.5323, 0.5170, 0.5}, {0.5946, 0.6112, 0.5}, {0.6257, 0.6496, 0.5},
+            {0.6683, 0.6496, 0.5}, {0.6855, 0.6496, 0.5}, {0.7000, 0.6363, 0.5},
+            {0.7000, 0.6159, 0.5}, {0.7000, 0.5741, 0.5}, {0.6157, 0.4908, 0.49},
+            {0.5025, 0.4873, 0.48}, {0.4029, 0.4842, 0.49}, {0.3395, 0.5440, 0.5},
+            {0.3395, 0.5933, 0.5}, {0.3395, 0.6245, 0.5}, {0.3649, 0.6488, 0.5},
+            {0.4017, 0.6488, 0.5}, {0.4498, 0.6488, 0.5}, {0.4799, 0.6022, 0.5},
+            {0.4799, 0.6022, 0.5},
+        },
+        false);
+
+    static stf::SweepFunction<3> sweep_function(sphere, curve);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
 
 #endif /* trajectory_h */
