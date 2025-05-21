@@ -19,7 +19,7 @@
 #include "post_processing.h"
 #include "timer.h"
 
-//#define SAVE_CONTOUR
+#define SAVE_CONTOUR
 
 int main(int argc, const char *argv[])
 {
@@ -131,6 +131,8 @@ int main(int argc, const char *argv[])
             implicit_sweep = knot;
         } else if (args.function_file == "brush_stroke") {
             implicit_sweep = brush_stroke;
+        } else if (args.function_file == "brush_stroke_blending") {
+            implicit_sweep = brush_stroke_blending;
         } else if (args.function_file == "concentric_rings") {
             implicit_sweep = concentric_rings;
         } else if (args.function_file == "spinning_rod") {
