@@ -139,6 +139,14 @@ int main(int argc, const char *argv[])
             implicit_sweep = spinning_rod;
         } else if (args.function_file == "letter_L") {
             implicit_sweep = letter_L;
+        } else if (args.function_file == "letter_L_blend") {
+            implicit_sweep = letter_L_blend;
+        } else if (args.function_file == "torus_rotation") {
+            implicit_sweep = torus_rotation;
+        } else if (args.function_file == "loopDloop_with_offset") {
+            implicit_sweep = loopDloop_with_offset;
+        } else if (args.function_file == "loopDloop_with_offset_v2") {
+            implicit_sweep = loopDloop_with_offset_v2;
         } else {
             throw std::runtime_error("ERROR: file format not supported");
         }
