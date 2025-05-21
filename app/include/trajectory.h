@@ -745,12 +745,12 @@ std::pair<Scalar, Eigen::RowVector4d> knot(Eigen::RowVector4d inputs) {
 }
 
 std::pair<Scalar, Eigen::RowVector4d> concentric_rings(Eigen::RowVector4d inputs) {
-    stf::ImplicitSphere sphere1(0.05, {0.6, 0.5, 0.5});
-    stf::ImplicitSphere sphere2(0.05, {0.71, 0.5, 0.5});
-    stf::ImplicitUnion base_shape(sphere1, sphere2);
+    static stf::ImplicitSphere sphere1(0.05, {0.6, 0.5, 0.5});
+    static stf::ImplicitSphere sphere2(0.05, {0.71, 0.5, 0.5});
+    static stf::ImplicitUnion base_shape(sphere1, sphere2);
 
-    stf::Rotation<3> rotation({0.5, 0.5, 0.5}, {0, 0, 1});
-    stf::SweepFunction<3> sweep_function(base_shape, rotation);
+    static stf::Rotation<3> rotation({0.5, 0.5, 0.5}, {0, 0, 1});
+    static stf::SweepFunction<3> sweep_function(base_shape, rotation);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
@@ -889,11 +889,11 @@ std::pair<Scalar, Eigen::RowVector4d> letter_L_blend(Eigen::RowVector4d inputs) 
 }
 
 std::pair<Scalar, Eigen::RowVector4d> torus_rotation(Eigen::RowVector4d inputs) {
-    stf::ImplicitTorus base_shape(0.2, 0.04, {0.25, 0.5, 0.5});
-    stf::Rotation<3> rotation({0.25, 0.5, 0.5}, {1, 0, 0});
-    stf::Translation<3> translation({-0.5, 0, 0});
-    stf::Compose<3> flip(translation, rotation);
-    stf::SweepFunction<3> sweep_function(base_shape, flip);
+    static stf::ImplicitTorus base_shape(0.2, 0.04, {0.25, 0.5, 0.5});
+    static stf::Rotation<3> rotation({0.25, 0.5, 0.5}, {1, 0, 0});
+    static stf::Translation<3> translation({-0.5, 0, 0});
+    static stf::Compose<3> flip(translation, rotation);
+    static stf::SweepFunction<3> sweep_function(base_shape, flip);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
