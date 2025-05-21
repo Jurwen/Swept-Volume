@@ -654,11 +654,58 @@ std::pair<Scalar, Eigen::RowVector4d> brush_stroke(Eigen::RowVector4d inputs) {
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
+std::pair<Scalar, Eigen::RowVector4d> brush_stroke_blending(Eigen::RowVector4d inputs) {
+    static stf::ImplicitSphere sphere0(0.045, {0.0, 0.0, 0.0});
+    static stf::ImplicitSphere sphere1(0.02, {0.0, 0.0, 0.03});
+    static stf::ImplicitSphere sphere2(0.02, {0.0, 0.0, -0.03});
+    static stf::ImplicitUnion<3> base_shape(sphere1, sphere2, 0.002);
+
+    // clang-format off
+    static std::vector<std::array<stf::Scalar, 3>> samples{
+        {0.3090, 0.6504, 0.32},
+        {0.3074, 0.6294, 0.34},
+        {0.3000, 0.5009, 0.36},
+        {0.3934, 0.4126, 0.38},
+        {0.4897, 0.3216, 0.4},
+        {0.6325, 0.3306, 0.42},
+        {0.6360, 0.3432, 0.44},
+        {0.6389, 0.3537, 0.46},
+        {0.5428, 0.3618, 0.48},
+        {0.4755, 0.4415, 0.5},
+        {0.3973, 0.5340, 0.52},
+        {0.4045, 0.6679, 0.54},
+        {0.4223, 0.6732, 0.56},
+        {0.4402, 0.6784, 0.58},
+        {0.4594, 0.5506, 0.6},
+        {0.5693, 0.4865, 0.62},
+        {0.6152, 0.4597, 0.64},
+        {0.6628, 0.4525, 0.66},
+        {0.7000, 0.4514, 0.68},
+    };
+    // clang-format on
+    static stf::PolyBezier<3> stroke(samples, false);
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, 360 * 3);
+    static stf::Compose<3> rotating_stroke(stroke, rotation);
+    //static stf::SweepFunction<3> sweep_function(base_shape, transform);
+    static stf::SweepFunction<3> sweep1(sphere0, stroke);
+    static stf::SweepFunction<3> sweep2(base_shape, stroke);
+    static stf::InterpolateFunction<3> blend(
+        sweep1,
+        sweep2,
+        [](stf::Scalar t) { return (std::sin(t * 3 * 2 * M_PI - M_PI / 2) + 1) / 2; },
+        [](stf::Scalar t) { return 3 * M_PI * std::cos(t * 3 * 2 * M_PI - M_PI / 2); });
+    auto& sweep_function = blend;
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
 
 std::pair<Scalar, Eigen::RowVector4d> knot(Eigen::RowVector4d inputs) {
     // static stf::ImplicitSphere base_shape(0.025, {0.0, 0.0, 0.0});
     static stf::ImplicitCapsule<3> base_shape(0.01, {-0.1, 0.0, 0.0}, {0.1, 0, 0});
-    std::vector<std::array<stf::Scalar, 3>> samples{
+    static std::vector<std::array<stf::Scalar, 3>> samples{
         { 0.9000, 0.5000, 0.5000 },
         { 0.9000, 0.5832, 0.6464 },
         { 0.6598, 0.5920, 0.7375 },
@@ -688,7 +735,7 @@ std::pair<Scalar, Eigen::RowVector4d> knot(Eigen::RowVector4d inputs) {
         { 0.9000, 0.4168, 0.3536 },
         { 0.9000, 0.5000, 0.5000 },
     };
-    static auto curve = stf::PolyBezier<3>(samples);
+    static auto curve = stf::PolyBezier<3>(samples, false);
     //auto curve = stf::Polyline<3>(samples);
     static stf::SweepFunction<3> sweep_function(base_shape, curve);
 
@@ -727,20 +774,46 @@ std::pair<Scalar, Eigen::RowVector4d> letter_L(Eigen::RowVector4d inputs) {
     static stf::ImplicitSphere sphere(0.04, {0.0, 0.0, 0.0});
     static stf::PolyBezier<3> curve(
         {
-            {0.6941, 0.4189, 0.5}, {0.6457, 0.3864, 0.5}, {0.5952, 0.3504, 0.5},
-            {0.5448, 0.3504, 0.5}, {0.5076, 0.3504, 0.5}, {0.4752, 0.3696, 0.49},
-            {0.4447, 0.3899, 0.48}, {0.4110, 0.4126, 0.49}, {0.3755, 0.4392, 0.5},
-            {0.3422, 0.4392, 0.5}, {0.3180, 0.4392, 0.5}, {0.3000, 0.4204, 0.5},
-            {0.3000, 0.3993, 0.5}, {0.3000, 0.3782, 0.5}, {0.3192, 0.3555, 0.5},
-            {0.3567, 0.3555, 0.5}, {0.3893, 0.3555, 0.5}, {0.4193, 0.3729, 0.5},
-            {0.4439, 0.3966, 0.5}, {0.4670, 0.4196, 0.5}, {0.5081, 0.4804, 0.5},
-            {0.5323, 0.5170, 0.5}, {0.5946, 0.6112, 0.5}, {0.6257, 0.6496, 0.5},
-            {0.6683, 0.6496, 0.5}, {0.6855, 0.6496, 0.5}, {0.7000, 0.6363, 0.5},
-            {0.7000, 0.6159, 0.5}, {0.7000, 0.5741, 0.5}, {0.6157, 0.4908, 0.49},
-            {0.5025, 0.4873, 0.48}, {0.4029, 0.4842, 0.49}, {0.3395, 0.5440, 0.5},
-            {0.3395, 0.5933, 0.5}, {0.3395, 0.6245, 0.5}, {0.3649, 0.6488, 0.5},
-            {0.4017, 0.6488, 0.5}, {0.4498, 0.6488, 0.5}, {0.4799, 0.6022, 0.5},
-            {0.4799, 0.6022, 0.5},
+            {0.6941,0.4189,0.45},
+            {0.6457,0.3864,0.4532520646014161},
+            {0.5952,0.3504,0.4567053138602828},
+            {0.5448,0.3504,0.45951681021477053},
+            {0.5076,0.3504,0.461587292026215},
+            {0.4752,0.3696,0.46368795156949405},
+            {0.4447,0.3899,0.46573106669305236},
+            {0.4110,0.4126,0.4679918240358986},
+            {0.3755,0.4392,0.4704676882285434},
+            {0.3422,0.4392,0.47232022458615164},
+            {0.3180,0.4392,0.47367148639993645},
+            {0.3000,0.4204,0.4751204549163221},
+            {0.3000,0.3993,0.4762973603670379},
+            {0.3000,0.3782,0.4774742658177537},
+            {0.3192,0.3555,0.4791290732784213},
+            {0.3567,0.3555,0.4812213496352494},
+            {0.3893,0.3555,0.48304119417478214},
+            {0.4193,0.3729,0.48497004222424356},
+            {0.4439,0.3966,0.48687369938850344},
+            {0.4670,0.4196,0.48869220574687294},
+            {0.5081,0.4804,0.49278055529388515},
+            {0.5323,0.5170,0.49522667680735677},
+            {0.5946,0.6112,0.5015202760795618},
+            {0.6257,0.6496,0.5042756679944657},
+            {0.6683,0.6496,0.5066512734412809},
+            {0.6855,0.6496,0.5076102334381605},
+            {0.7000,0.6363,0.508705395789782},
+            {0.7000,0.6159,0.5098387121497305},
+            {0.7000,0.5741,0.5121707285057785},
+            {0.6157,0.4908,0.5187744847481601},
+            {0.5025,0.4873,0.5250870538782416},
+            {0.4029,0.4842,0.5306437666433996},
+            {0.3395,0.5440,0.5355028764354673},
+            {0.3395,0.5933,0.5382489891538043},
+            {0.3395,0.6245,0.5399925527844943},
+            {0.3649,0.6488,0.541950304765777},
+            {0.4017,0.6488,0.5439989920318379},
+            {0.4498,0.6488,0.5466797211140239},
+            {0.4799,0.6022,0.5497688624782774},
+            {0.4834,0.6002,0.55},
         },
         false);
 
@@ -751,5 +824,113 @@ std::pair<Scalar, Eigen::RowVector4d> letter_L(Eigen::RowVector4d inputs) {
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
+std::pair<Scalar, Eigen::RowVector4d> letter_L_blend(Eigen::RowVector4d inputs) {
+    static stf::ImplicitSphere sphere(0.04, {0.0, 0.0, 0.0});
+    static stf::ImplicitTorus torus(0.04, 0.02, {0.0, 0.0, 0.0});
+    static stf::PolyBezier<3> curve(
+        {
+            {0.6941,0.4189,0.45},
+            {0.6457,0.3864,0.4532520646014161},
+            {0.5952,0.3504,0.4567053138602828},
+            {0.5448,0.3504,0.45951681021477053},
+            {0.5076,0.3504,0.461587292026215},
+            {0.4752,0.3696,0.46368795156949405},
+            {0.4447,0.3899,0.46573106669305236},
+            {0.4110,0.4126,0.4679918240358986},
+            {0.3755,0.4392,0.4704676882285434},
+            {0.3422,0.4392,0.47232022458615164},
+            {0.3180,0.4392,0.47367148639993645},
+            {0.3000,0.4204,0.4751204549163221},
+            {0.3000,0.3993,0.4762973603670379},
+            {0.3000,0.3782,0.4774742658177537},
+            {0.3192,0.3555,0.4791290732784213},
+            {0.3567,0.3555,0.4812213496352494},
+            {0.3893,0.3555,0.48304119417478214},
+            {0.4193,0.3729,0.48497004222424356},
+            {0.4439,0.3966,0.48687369938850344},
+            {0.4670,0.4196,0.48869220574687294},
+            {0.5081,0.4804,0.49278055529388515},
+            {0.5323,0.5170,0.49522667680735677},
+            {0.5946,0.6112,0.5015202760795618},
+            {0.6257,0.6496,0.5042756679944657},
+            {0.6683,0.6496,0.5066512734412809},
+            {0.6855,0.6496,0.5076102334381605},
+            {0.7000,0.6363,0.508705395789782},
+            {0.7000,0.6159,0.5098387121497305},
+            {0.7000,0.5741,0.5121707285057785},
+            {0.6157,0.4908,0.5187744847481601},
+            {0.5025,0.4873,0.5250870538782416},
+            {0.4029,0.4842,0.5306437666433996},
+            {0.3395,0.5440,0.5355028764354673},
+            {0.3395,0.5933,0.5382489891538043},
+            {0.3395,0.6245,0.5399925527844943},
+            {0.3649,0.6488,0.541950304765777},
+            {0.4017,0.6488,0.5439989920318379},
+            {0.4498,0.6488,0.5466797211140239},
+            {0.4799,0.6022,0.5497688624782774},
+            {0.4834,0.6002,0.55},
+        },
+        false);
+
+    static stf::SweepFunction<3> sphere_sweep(sphere, curve);
+    static stf::Rotation<3> torus_rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, 360 * 3);
+    static stf::Compose<3> torus_curve(curve, torus_rotation);
+    static stf::SweepFunction<3> torus_sweep(torus, torus_curve);
+    auto& sweep_function = torus_sweep;
+    //static stf::InterpolateFunction<3> sweep_function(
+    //    sphere_sweep,
+    //    torus_sweep,
+    //    [](stf::Scalar t) { return (std::sin(t * 3 * 2 * M_PI - M_PI / 2) + 1) / 2; },
+    //    [](stf::Scalar t) { return 3 * M_PI * std::cos(t * 3 * 2 * M_PI - M_PI / 2); });
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> torus_rotation(Eigen::RowVector4d inputs) {
+    stf::ImplicitTorus base_shape(0.2, 0.04, {0.25, 0.5, 0.5});
+    stf::Rotation<3> rotation({0.25, 0.5, 0.5}, {1, 0, 0});
+    stf::Translation<3> translation({-0.5, 0, 0});
+    stf::Compose<3> flip(translation, rotation);
+    stf::SweepFunction<3> sweep_function(base_shape, flip);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+
+std::pair<Scalar, Eigen::RowVector4d> loopDloop_with_offset(Eigen::RowVector4d inputs) {
+    static stf::ImplicitTorus base_shape(0.07, 0.03, {0.0, 0.0, 0.0});
+    static stf::PolyBezier<3> bezier(
+        {{0.2, 0.2, 0.3}, {1.4, 0.8, 0.3}, {-0.4, 0.8, 0.3}, {0.8, 0.2, 0.3}});
+    static stf::SweepFunction<3> torus_sweep(base_shape, bezier);
+    static stf::OffsetFunction<3> offset_function(
+        torus_sweep,
+        [](stf::Scalar t) { return -0.02 * std::cos(t * 2 * M_PI) - 0.02; },
+        [](stf::Scalar t) { return 0.02 * std::sin(t * 2 * M_PI) * 2 * M_PI; });
+    auto& sweep_function = offset_function;
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> loopDloop_with_offset_v2(Eigen::RowVector4d inputs) {
+    static stf::ImplicitTorus base_shape(0.07, 0.03, {0.0, 0.0, 0.0});
+    static stf::PolyBezier<3> bezier(
+        {{0.2, 0.2, 0.3}, {1.4, 0.8, 0.3}, {-0.4, 0.8, 0.3}, {0.8, 0.2, 0.3}});
+    static stf::SweepFunction<3> torus_sweep(base_shape, bezier);
+    static stf::OffsetFunction<3> offset_function(
+        torus_sweep,
+        [](stf::Scalar t) { return -0.04 * t; },
+        [](stf::Scalar t) { return -0.04 ; });
+    auto& sweep_function = offset_function;
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
 
 #endif /* trajectory_h */
