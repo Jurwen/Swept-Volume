@@ -19,7 +19,7 @@
 #include "post_processing.h"
 #include "timer.h"
 
-//#define SAVE_CONTOUR;
+//#define SAVE_CONTOUR
 
 int main(int argc, const char *argv[])
 {
@@ -131,6 +131,12 @@ int main(int argc, const char *argv[])
             implicit_sweep = knot;
         } else if (args.function_file == "brush_stroke") {
             implicit_sweep = brush_stroke;
+        } else if (args.function_file == "concentric_rings") {
+            implicit_sweep = concentric_rings;
+        } else if (args.function_file == "spinning_rod") {
+            implicit_sweep = spinning_rod;
+        } else if (args.function_file == "letter_L") {
+            implicit_sweep = letter_L;
         } else {
             throw std::runtime_error("ERROR: file format not supported");
         }
