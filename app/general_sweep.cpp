@@ -147,6 +147,8 @@ int main(int argc, const char *argv[])
             implicit_sweep = loopDloop_with_offset;
         } else if (args.function_file == "loopDloop_with_offset_v2") {
             implicit_sweep = loopDloop_with_offset_v2;
+        } else if (args.function_file == "doghead") {
+            implicit_sweep = doghead;
         } else {
             throw std::runtime_error("ERROR: file format not supported");
         }

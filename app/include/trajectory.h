@@ -15,6 +15,8 @@
 #include <igl/signed_distance.h>
 #include <stf/stf.h>
 
+#include <filesystem>
+
 void trajLine3D(double t, Eigen::RowVector3d& xt, Eigen::RowVector3d& vt) {
     // Define the fixed vectors
     Eigen::RowVector3d start(0.01, 0.01, 0.0);
@@ -927,6 +929,26 @@ std::pair<Scalar, Eigen::RowVector4d> loopDloop_with_offset_v2(Eigen::RowVector4
         [](stf::Scalar t) { return -0.04 * t; },
         [](stf::Scalar t) { return -0.04 ; });
     auto& sweep_function = offset_function;
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> doghead(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+
+    static stf::Duchon base_shape(
+            data_dir / "vipss_data" / "doghead_800_shifted.xyz",
+            data_dir / "vipss_data" / "doghead_800_shifted_coeff",
+            {0.5, 0.7, 0.5},
+            0.2, true);
+    static stf::Translation<3> translation({0.5, 0.0, 0.0});
+    static stf::Rotation<3> rotation_Y({0.5, 0.5, 0.5}, {0.0, 1.0, 0.0}, 180);
+    static stf::Rotation<3> rotation_X({0.7, 0.5, 0.5}, {1.0, 0.0, 0.0}, 180);
+    static stf::Rotation<3> rotation_Z({0.5, 0.5, 0.5}, {0.0, 0.0, 1.0}, 180);
+    static stf::Compose<3> transform(translation, rotation_X);
+    static stf::SweepFunction<3> sweep_function(base_shape, rotation_Z);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
