@@ -17,6 +17,8 @@
 
 #include <filesystem>
 
+#include "MeshSDF.h"
+
 void trajLine3D(double t, Eigen::RowVector3d& xt, Eigen::RowVector3d& vt) {
     // Define the fixed vectors
     Eigen::RowVector3d start(0.01, 0.01, 0.0);
@@ -742,7 +744,7 @@ std::pair<Scalar, Eigen::RowVector4d> knot(Eigen::RowVector4d inputs) {
     static stf::SweepFunction<3> sweep_function(base_shape, curve);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
@@ -755,7 +757,7 @@ std::pair<Scalar, Eigen::RowVector4d> concentric_rings(Eigen::RowVector4d inputs
     static stf::SweepFunction<3> sweep_function(base_shape, rotation);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
@@ -768,7 +770,7 @@ std::pair<Scalar, Eigen::RowVector4d> spinning_rod(Eigen::RowVector4d inputs) {
     static stf::SweepFunction<3> sweep_function(rod, transform);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
@@ -822,7 +824,7 @@ std::pair<Scalar, Eigen::RowVector4d> letter_L(Eigen::RowVector4d inputs) {
     static stf::SweepFunction<3> sweep_function(sphere, curve);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
@@ -886,7 +888,7 @@ std::pair<Scalar, Eigen::RowVector4d> letter_L_blend(Eigen::RowVector4d inputs) 
     //    [](stf::Scalar t) { return 3 * M_PI * std::cos(t * 3 * 2 * M_PI - M_PI / 2); });
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
@@ -898,7 +900,7 @@ std::pair<Scalar, Eigen::RowVector4d> torus_rotation(Eigen::RowVector4d inputs) 
     static stf::SweepFunction<3> sweep_function(base_shape, flip);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
@@ -915,7 +917,7 @@ std::pair<Scalar, Eigen::RowVector4d> loopDloop_with_offset(Eigen::RowVector4d i
     auto& sweep_function = offset_function;
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
@@ -931,7 +933,7 @@ std::pair<Scalar, Eigen::RowVector4d> loopDloop_with_offset_v2(Eigen::RowVector4
     auto& sweep_function = offset_function;
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
@@ -953,7 +955,68 @@ std::pair<Scalar, Eigen::RowVector4d> doghead(Eigen::RowVector4d inputs) {
     static stf::SweepFunction<3> sweep_function(base_shape, bezier);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> star_S(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+    std::string filename = (data_dir / "meshes" / "star2.obj").string();
+
+    static MeshSDF sdf(filename, {0.0, 0.0, 0.0}, 0.1, -0.02);
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, 360);
+    //static stf::Translation<3> translation({0.0, -0.2, 0.0});
+    static stf::PolyBezier<3> bezier(
+        {{0.25, 0.5, 0.25}, {1.5, 0.5, 0.4}, {-0.5, 0.5, 0.6}, {0.75, 0.5, 0.75}});
+    static stf::Compose<3> transform(bezier, rotation);
+    static stf::SweepFunction<3> sweep_function(sdf, transform);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> star_D(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+    std::string filename = (data_dir / "meshes" / "star2.obj").string();
+
+    static MeshSDF sdf(filename, {0.0, 0.0, 0.0}, 0.1, -0.02);
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, 360);
+    static stf::PolyBezier<3> bezier(
+        {{0.25, 0.5, 0.25}, {0.75, 0.5, 0.4}, {0.75, 0.5, 0.6}, {0.25, 0.5, 0.75}});
+    static stf::Compose<3> transform(bezier, rotation);
+    static stf::SweepFunction<3> sdf_sweep(sdf, transform);
+
+    static stf::ImplicitSphere sphere(0.05, {0.3, 0.5, 0.8});
+    static stf::Translation<3> translation({0.0, 0.0, 0.6});
+    static stf::SweepFunction<3> sphere_sweep(sphere, translation);
+
+    static stf::UnionFunction<3> sweep_function(sdf_sweep, sphere_sweep);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> star_F(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+    std::string filename = (data_dir / "meshes" / "star2.obj").string();
+
+    static MeshSDF sdf(filename, {0.0, 0.0, 0.0}, 0.1, -0.02);
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, 360);
+    static stf::PolyBezier<3> bezier(
+        {{0.4, 0.5, 0.25}, {0.4, 0.5, 0.6}, {0.3, 0.5, 0.75}, {0.75, 0.5, 0.75}});
+    static stf::Compose<3> transform(bezier, rotation);
+    static stf::SweepFunction<3> sdf_sweep(sdf, transform);
+
+    static stf::ImplicitSphere sphere(0.05, {0.3, 0.5, 0.5});
+    static stf::Translation<3> translation({-0.3, 0.0, 0.0});
+    static stf::SweepFunction<3> sphere_sweep(sphere, translation);
+
+    static stf::UnionFunction<3> sweep_function(sdf_sweep, sphere_sweep);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
