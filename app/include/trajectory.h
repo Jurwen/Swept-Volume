@@ -991,7 +991,7 @@ std::pair<Scalar, Eigen::RowVector4d> star_D(Eigen::RowVector4d inputs) {
     static stf::Translation<3> translation({0.0, 0.0, 0.6});
     static stf::SweepFunction<3> sphere_sweep(sphere, translation);
 
-    static stf::UnionFunction<3> sweep_function(sdf_sweep, sphere_sweep);
+    static stf::UnionFunction<3> sweep_function(sdf_sweep, sphere_sweep, 0.02);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
@@ -1009,11 +1009,26 @@ std::pair<Scalar, Eigen::RowVector4d> star_F(Eigen::RowVector4d inputs) {
     static stf::Compose<3> transform(bezier, rotation);
     static stf::SweepFunction<3> sdf_sweep(sdf, transform);
 
-    static stf::ImplicitSphere sphere(0.05, {0.3, 0.5, 0.5});
-    static stf::Translation<3> translation({-0.3, 0.0, 0.0});
+    static stf::ImplicitSphere sphere(0.05, {0.6, 0.5, 0.5});
+    static stf::Translation<3> translation({0.3, 0.0, 0.0});
     static stf::SweepFunction<3> sphere_sweep(sphere, translation);
 
-    static stf::UnionFunction<3> sweep_function(sdf_sweep, sphere_sweep);
+    static stf::UnionFunction<3> sweep_function(sdf_sweep, sphere_sweep, 0.01);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> star_I(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+    std::string filename = (data_dir / "meshes" / "star2.obj").string();
+
+    static MeshSDF sdf(filename, {0.0, 0.0, 0.0}, 0.1, -0.02);
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, 360);
+    static stf::Polyline<3> line({{0.5, 0.5, 0.25}, {0.5, 0.5, 0.75}});
+    static stf::Compose<3> transform(line, rotation);
+    static stf::SweepFunction<3> sweep_function(sdf, transform);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
@@ -1086,7 +1101,7 @@ std::pair<Scalar, Eigen::RowVector4d> VIPSS_blend(Eigen::RowVector4d inputs) {
                                {0, 0, 0}, 1, true);
     static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, 90);
     static stf::PolyBezier<3> bezier({{5, 5, 4}, {5, 5, 4.5}, {5, 5, 5}, {5, 5, 5.5}});
-    stf::Compose<3> bezierRot(bezier, rotation);
+    static stf::Compose<3> bezierRot(bezier, rotation);
     static stf::SweepFunction<3> dog_sweep(doghead, bezierRot);
     static stf::SweepFunction<3> planck_sweep(planck, bezier);
     static stf::InterpolateFunction<3> sweep_function(planck_sweep, dog_sweep);
