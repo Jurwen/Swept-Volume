@@ -154,6 +154,8 @@ int main(int argc, const char *argv[])
             implicit_sweep = loopDloop_with_offset_v2;
         } else if (args.function_file == "loopDloop_with_offset_v3") {
             implicit_sweep = loopDloop_with_offset_v3;
+        } else if (args.function_file == "VIPSS_blend") {
+            implicit_sweep = VIPSS_blend;
         } else if (args.function_file == "test"){
             implicit_sweep = test;
         } else {

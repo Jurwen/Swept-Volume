@@ -949,6 +949,30 @@ std::pair<Scalar, Eigen::RowVector4d> loopDloop_with_offset_v3(Eigen::RowVector4
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
+std::pair<Scalar, Eigen::RowVector4d> VIPSS_blend(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+    static stf::Duchon doghead(
+                               data_dir / "test" / "dog_head" / "doghead_800.xyz",
+                               data_dir / "test" / "dog_head" / "doghead_800_coeff",
+                               {0, 0, 0}, 1, true);
+    static stf::Duchon planck(
+                               data_dir / "test" / "planck" / "planck_1011.xyz",
+                               data_dir / "test" / "planck" / "planck_1011_coeff",
+                               {0, 0, 0}, 1, true);
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, 90);
+    static stf::PolyBezier<3> bezier({{5, 5, 4}, {5, 5, 4.5}, {5, 5, 5}, {5, 5, 5.5}});
+    stf::Compose<3> bezierRot(bezier, rotation);
+    static stf::SweepFunction<3> dog_sweep(doghead, bezierRot);
+    static stf::SweepFunction<3> planck_sweep(planck, bezier);
+    static stf::InterpolateFunction<3> sweep_function(planck_sweep, dog_sweep);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+//    std::cout << value << std::endl;
+//    std::cout << Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3]) << std::endl;
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
 std::pair<Scalar, Eigen::RowVector4d> test(Eigen::RowVector4d inputs) {
     std::filesystem::path data_dir(DATA_DIR);
     static stf::Duchon doghead(
