@@ -4,7 +4,7 @@
 //
 //  Created by Yiwen Ju on 12/10/24.
 //
-
+//#define no_inside
 #include <ref_crit.h>
 
 ///Stores the 2d origin for the convex hull check happened in zero-crossing criteria.
@@ -162,8 +162,10 @@ bool bezier4D(
     face1, face2, face3, face4, face5, face6, face7, face8, face9, face10;
     //    bezier.segment(25, 10) << face1, face2, face3, face4, face5,
     //    face6, face7, face8, face9, face10;
+#ifndef no_inside
     inside = inside || bezier({0,1,2,3,5, 6, 7, 9, 10, 11, 13, 14, 15, 17, 18, 19, 25, 26, 28, 31}).maxCoeff() <= 0;
     inside = inside || bezier({1,2,3,4,10, 11, 12, 14, 15, 16, 18, 19, 20, 22, 23, 24, 31, 32, 33, 34}).maxCoeff() <= 0;
+#endif
     if (get_sign(bezier.maxCoeff()) == get_sign(bezier.minCoeff())){
         return false;
     }

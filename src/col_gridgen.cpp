@@ -4,7 +4,7 @@
 //
 //  Created by Yiwen Ju on 12/4/24.
 //
-
+//#define only_stage1
 #include "col_gridgen.h"
 
 namespace dr = drjit; // For nanothread
@@ -304,7 +304,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
             }
         }
         if (terminate) return;
-        
+#ifndef only_stage1
         std::vector<mtet::Scalar> spatial_verts;
         spatial_verts.reserve(12); //3 (dim) x 4 (vertices)tuple
         for (const auto& corners : vs){
@@ -409,7 +409,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
                             terminate = true;
                         }
                     }
-                    else if (40 * longest_edge_length > threshold){
+                    else if (20 * longest_edge_length > threshold){
                         spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
                         std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
                         terminate = true;
@@ -418,6 +418,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
                 if (terminate) return;
             }
         }
+#endif
     };
     
     auto push_simps = [&](mtet::TetId tid, simpCol::cell5_list cell5Col, llvm_vecsmall::SmallVector<size_t, 256> refineList)

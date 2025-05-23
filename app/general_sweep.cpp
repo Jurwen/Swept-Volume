@@ -20,7 +20,7 @@
 #include "timer.h"
 
 #define SAVE_CONTOUR
-
+//#define batch_stats
 int main(int argc, const char *argv[])
 {
     struct
@@ -97,8 +97,13 @@ int main(int argc, const char *argv[])
                 double s,sqrd,sqrd2,s2;
                 Eigen::Matrix3d VRt,Rt;
                 Eigen::RowVector3d xt,vt,pos,c,c2,xyz_grad,point_velocity;
-                trajLine3D(t, xt, vt);
+//                auto tran = transform.transform(std::array<double, 3>{P(0), P(1), P(2)}, t);
+//                auto velocity = transform.velocity(std::array<double, 3>{P(0), P(1), P(2)}, t);
+                trajLine3D2(t, xt, vt);
                 trajLineRot3D(t, Rt, VRt, rotation);
+//                pos(0) = tran[0];
+//                pos(1) = tran[1];
+//                pos(2) = tran[2];
                 pos = ((Rt.inverse())*((P - xt).transpose())).transpose();
                 // fast winding number
                 Eigen::VectorXd w;
@@ -108,13 +113,13 @@ int main(int argc, const char *argv[])
                 value = s*sqrt(sqrd);
                 Eigen::RowVector3d cp = c - pos;
                 cp.normalize();
-                //std::cout << cp << std::endl;
                 xyz_grad  = (-s) * cp * Rt.inverse();
                 gradient.template head<3>() << xyz_grad;
-                //std::cout << xyz_grad << std::endl;
                 point_velocity = (-Rt.inverse()*VRt*Rt.inverse()*(P.transpose() - xt.transpose()) - Rt.inverse()*vt.transpose()).transpose();
+//                point_velocity(0) = velocity[0];
+//                point_velocity(1) = velocity[1];
+//                point_velocity(2) = velocity[2];
                 gradient(3) =  (-s) * cp.dot(point_velocity);
-                //std::cout << s * cp.dot(point_velocity) << std::endl;
                 return {value, gradient};
             };
         } else if (args.function_file == "elbow") {
@@ -159,13 +164,19 @@ int main(int argc, const char *argv[])
             implicit_sweep = fertility;
         } else if (args.function_file == "bunny_blend") {
             implicit_sweep = bunny_blend;
+        } else if (args.function_file == "loopDloop_with_offset_v3") {
+            implicit_sweep = loopDloop_with_offset_v3;
+        } else if (args.function_file == "VIPSS_blend") {
+            implicit_sweep = VIPSS_blend;
+        } else if (args.function_file == "test"){
+            implicit_sweep = test;
         } else {
             throw std::runtime_error("ERROR: file format not supported");
         }
     }else{
         /// use hard coded models as default/testing purpose.
         implicit_sweep = [&](Eigen:: RowVector4d data){
-            return flippingDonut(data);
+            return flippingDonutFullTurn(data);
         };
     }
     ///
@@ -213,6 +224,9 @@ int main(int argc, const char *argv[])
     columns.set_time_samples(time_func, values_func);
     
     auto contour = columns.extract_contour(iso_value, cyclic);
+    stopperTime = std::chrono::high_resolution_clock::now();
+    auto surface_1_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
+    std::cout << "Surfacing time: " << (surface_1_end - grid_end) * 0.000001 << std::endl;
     size_t num_contour_vertices = contour.get_num_vertices();
     std::vector<double> function_values(num_contour_vertices);
     std::vector<double> gradient_values(num_contour_vertices * dim);
@@ -246,8 +260,8 @@ int main(int argc, const char *argv[])
         }
     }
     stopperTime = std::chrono::high_resolution_clock::now();
-    auto surface_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
-    std::cout << "Surfacing time: " << (surface_end - grid_end) * 0.000001 << std::endl;
+    auto surface_2_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
+    std::cout << "Surfacing time: " << (surface_2_end - surface_1_end) * 0.000001 << std::endl;
     
 #ifdef SAVE_CONTOUR
     mtetcol::save_contour(output_path + "/temporal_grid.obj", contour);
@@ -264,18 +278,20 @@ int main(int argc, const char *argv[])
                         time_math,
                         values_math);
     std::string column_iso_file = "column_iso.json";
-    if (std::filesystem::exists(column_iso_file.c_str())){
-        std::filesystem::remove(column_iso_file.c_str());
+    {
+        if (std::filesystem::exists(column_iso_file.c_str())){
+            std::filesystem::remove(column_iso_file.c_str());
+        }
+        using json = nlohmann::json;
+        std::ofstream fout(column_iso_file.c_str(),std::ios::app);
+        json jOut;
+        jOut.push_back(json(verts_math));
+        jOut.push_back(json(simps_math));
+        jOut.push_back(json(time_math));
+        jOut.push_back(json(values_math));
+        fout << jOut.dump(4, ' ', true, json::error_handler_t::replace) << std::endl;
+        fout.close();
     }
-    using json = nlohmann::json;
-    std::ofstream fout(column_iso_file.c_str(),std::ios::app);
-    json jOut;
-    jOut.push_back(json(verts_math));
-    jOut.push_back(json(simps_math));
-    jOut.push_back(json(time_math));
-    jOut.push_back(json(values_math));
-    fout << jOut.dump(4, ' ', true, json::error_handler_t::replace) << std::endl;
-    fout.close();
     /// End of Mathematica output
 #endif
     arrangement::MatrixFr vertices;    // nx3 Vertex matrix
@@ -308,11 +324,55 @@ int main(int argc, const char *argv[])
     compute_sweep_volume(vertices, faces, out_vertices, out_faces, output_path);
     stopperTime = std::chrono::high_resolution_clock::now();
     auto arrangement_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
-    std::cout << "Arrangement time: " << (arrangement_end - surface_end) * 0.000001 << std::endl;
+    std::cout << "Arrangement time: " << (arrangement_end - surface_2_end) * 0.000001 << std::endl;
     igl::write_triangle_mesh(output_path + "/mesh" + ".obj", vertices, faces);
-    for (size_t i = 0; i < out_faces.size(); i++){
-        igl::write_triangle_mesh(output_path + "/" + std::to_string(i) + ".obj", out_vertices, out_faces[i]);
+//    for (size_t i = 0; i < out_faces.size(); i++){
+//        igl::write_triangle_mesh(output_path + "/" + std::to_string(i) + ".obj", out_vertices, out_faces[i]);
+//    }
+    int after_tris = 0;
+    for (size_t i = 0; i < out_faces.size(); i++) after_tris += out_faces[i].rows();
+#ifdef batch_stats
+    std::string stats_file = "stats.json";
+    {
+        std::vector<std::array<double, 3>> verts_math;
+        std::vector<std::array<size_t, 4>> simps_math;
+        std::vector<std::vector<double>> time_math;
+        std::vector<std::vector<double>> values_math;
+        convert_4d_grid_col(grid, vertexMap,
+                            verts_math,
+                            simps_math,
+                            time_math,
+                            values_math);
+        int num_non_tet_poly = 0;
+        for (uint32_t i = 0; i < contour.get_num_polyhedra(); ++i) {
+            if (!contour.is_polyhedron_regular(i)) num_non_tet_poly++;
+        }
+        int after_tris = 0;
+        for (size_t i = 0; i < out_faces.size(); i++) after_tris += out_faces[i].rows();
+        using json = nlohmann::json;
+        std::ofstream fout(stats_file.c_str(),std::ios::app);
+        json jOut;
+        jOut["grid tets"] = grid.get_num_tets();
+        jOut["contour cells"] = contour.get_num_polyhedra();
+        jOut["non_tet polys"] = num_non_tet_poly;
+        jOut["tris before arrangement"] = num_triangles;
+        jOut["tris after arrangement"] = after_tris;
+        fout << jOut.dump(4, ' ', true, json::error_handler_t::replace) << std::endl;
+        fout.close();
     }
-    
+    std::string time_file = "time.json";
+    {
+        using json = nlohmann::json;
+        std::ofstream fout(time_file.c_str(),std::ios::app);
+        json jOut;
+        const double convert_sec = 1e-6;
+        jOut["grid"] = (grid_end - start) * 1e-6;
+        jOut["4D surfacing"] = (surface_1_end - grid_end) * 1e-6;
+        jOut["3D surfacing"] = (surface_2_end - surface_1_end) * 1e-6;
+        jOut["arrangement"] = (arrangement_end - surface_2_end) * 1e-6;
+        fout << jOut.dump(4, ' ', true, json::error_handler_t::replace) << std::endl;
+        fout.close();
+    }
+#endif
     return 0;
 }

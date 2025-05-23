@@ -32,9 +32,9 @@ void trajLine3D(double t, Eigen::RowVector3d& xt, Eigen::RowVector3d& vt) {
 
 void trajLine3D2(double t, Eigen::RowVector3d& xt, Eigen::RowVector3d& vt) {
     // Define the fixed vectors
-    Eigen::RowVector3d start(0.01, 0.01, 0.0);
-    Eigen::RowVector3d end(0.0, 0.01, 0.51);
-    Eigen::RowVector3d offset(0.5, 0.5, 0.25);
+    Eigen::RowVector3d start(-0.11, 0.01, 0.0);
+    Eigen::RowVector3d end(0.61, 0.01, 0.01);
+    Eigen::RowVector3d offset(0.25, 0.5, 0.5);
     
     // Compute the linear interpolation and add the offset
     xt = (1.0 - t) * start + t * end + offset;
@@ -1057,5 +1057,63 @@ std::pair<Scalar, Eigen::RowVector4d> bunny_blend(Eigen::RowVector4d inputs) {
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
+
+std::pair<Scalar, Eigen::RowVector4d> loopDloop_with_offset_v3(Eigen::RowVector4d inputs) {
+    static stf::ImplicitTorus base_shape(0.07, 0.04, {0.0, 0.0, 0.0});
+    static stf::PolyBezier<3> bezier(
+        {{0.2, 0.2, 0.3}, {1.4, 0.8, 0.3}, {-0.4, 0.8, 0.3}, {0.8, 0.2, 0.3}});
+    static stf::SweepFunction<3> torus_sweep(base_shape, bezier);
+    static stf::OffsetFunction<3> offset_function(
+        torus_sweep,
+        [](stf::Scalar t) { return -0.04 * t; },
+        [](stf::Scalar t) { return -0.04 ; });
+    auto& sweep_function = offset_function;
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> VIPSS_blend(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+    static stf::Duchon doghead(
+                               data_dir / "test" / "dog_head" / "doghead_800.xyz",
+                               data_dir / "test" / "dog_head" / "doghead_800_coeff",
+                               {0, 0, 0}, 1, true);
+    static stf::Duchon planck(
+                               data_dir / "test" / "planck" / "planck_1011.xyz",
+                               data_dir / "test" / "planck" / "planck_1011_coeff",
+                               {0, 0, 0}, 1, true);
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, 90);
+    static stf::PolyBezier<3> bezier({{5, 5, 4}, {5, 5, 4.5}, {5, 5, 5}, {5, 5, 5.5}});
+    stf::Compose<3> bezierRot(bezier, rotation);
+    static stf::SweepFunction<3> dog_sweep(doghead, bezierRot);
+    static stf::SweepFunction<3> planck_sweep(planck, bezier);
+    static stf::InterpolateFunction<3> sweep_function(planck_sweep, dog_sweep);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+//    std::cout << value << std::endl;
+//    std::cout << Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3]) << std::endl;
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> test(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+    static stf::Duchon doghead(
+                               data_dir / "test" / "dog_head" / "doghead_800_shifted.xyz",
+                               data_dir / "test" / "dog_head" / "doghead_800_shifted_coeff",
+                               {0, 0, 0}, 1, true);
+//    static stf::PolyBezier<3> bezier({{3, 5, 5}, {4, 5, 5}, {5, 5, 5}, {6, 5, 5}});
+//    static stf::PolyBezier<3> bezier({{3, 5, 5}, {4, 5, 5}, {5, 5, 5}, {6, 5, 5}});
+    static stf::PolyBezier<3> bezier({{4, 5, 5}, {6, 6, 5}, {3, 6, 5}, {5, 5, 5}});
+    static stf::SweepFunction<3> sweep_function(doghead, bezier);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+//    std::cout << value << std::endl;
+//    std::cout << Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3]) << std::endl;
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
 
 #endif /* trajectory_h */
