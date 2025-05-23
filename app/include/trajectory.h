@@ -1020,4 +1020,42 @@ std::pair<Scalar, Eigen::RowVector4d> star_F(Eigen::RowVector4d inputs) {
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
+std::pair<Scalar, Eigen::RowVector4d> fertility(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+
+    static stf::Duchon base_shape(
+            data_dir / "vipss_data" / "fertility.xyz",
+            data_dir / "vipss_data" / "fertility_coeff.txt",
+            {0.5, 0.5, 0.5},
+            0.3, false);
+    static stf::Translation<3> translation({-0.2, 0.0, 0.0});
+    static stf::Rotation<3> rotation_Y({0.5, 0.5, 0.5}, {0.0, 1.0, 0.0}, 180);
+    static stf::Rotation<3> rotation_X({0.25, 0.5, 0.5}, {1.0, 0.0, 0.0}, 360);
+    static stf::Rotation<3> rotation_Z({0.5, 0.5, 0.5}, {0.0, 0.0, 1.0}, 180);
+    static stf::Compose<3> transform(translation, rotation_Y);
+    static stf::PolyBezier<3> bezier(
+        {{0.2, 0.2, 0.3}, {1.4, 0.8, 0.4}, {-0.4, 0.8, 0.5}, {0.8, 0.2, 0.6}});
+    static stf::SweepFunction<3> sweep_function(base_shape, transform);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> bunny_blend(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+    std::string filename = (data_dir / "meshes" / "bunny.obj").string();
+
+    static MeshSDF sdf(filename, {0.25, 0.5, 0.5}, 0.2, -0.02);
+    static stf::Rotation<3> rotation_Z({0.5, 0.5, 0.5}, {0.0, 0.0, 1.0}, 360);
+    static stf::Rotation<3> rotation_X({0.25, 0.5, 0.5}, {1.0, 0.0, 0.0}, 360);
+    static stf::Compose<3> transform(rotation_Z, rotation_X);
+    static stf::SweepFunction<3> sweep_function(sdf, transform);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+
 #endif /* trajectory_h */

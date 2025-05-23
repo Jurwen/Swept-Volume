@@ -155,6 +155,10 @@ int main(int argc, const char *argv[])
             implicit_sweep = star_D;
         } else if (args.function_file == "star_F") {
             implicit_sweep = star_F;
+        } else if (args.function_file == "fertility") {
+            implicit_sweep = fertility;
+        } else if (args.function_file == "bunny_blend") {
+            implicit_sweep = bunny_blend;
         } else {
             throw std::runtime_error("ERROR: file format not supported");
         }
