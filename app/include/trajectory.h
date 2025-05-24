@@ -972,7 +972,6 @@ std::pair<Scalar, Eigen::RowVector4d> VIPSS_blend(Eigen::RowVector4d inputs) {
 //    std::cout << Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3]) << std::endl;
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
-
 std::pair<Scalar, Eigen::RowVector4d> test(Eigen::RowVector4d inputs) {
     std::filesystem::path data_dir(DATA_DIR);
     static stf::Duchon doghead(
@@ -983,9 +982,12 @@ std::pair<Scalar, Eigen::RowVector4d> test(Eigen::RowVector4d inputs) {
 //    static stf::PolyBezier<3> bezier({{3, 5, 5}, {4, 5, 5}, {5, 5, 5}, {6, 5, 5}});
     static stf::PolyBezier<3> bezier({{4, 5, 5}, {6, 6, 5}, {3, 6, 5}, {5, 5, 5}});
     static stf::SweepFunction<3> sweep_function(doghead, bezier);
+    //static stf::ImplicitSphere doghead(0.04, {0.0, 0.0, 0.0});
+    //static stf::PolyBezier<3> bezier({{0.14, 0.51, 0.5}, {0.38, 0.51, 0.503333}, {0.62, 0.51, 0.506667}, {0.86, 0.51, 0.51}});
+    //static stf::SweepFunction<3> sweep_function(doghead, bezier);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
 //    std::cout << value << std::endl;
 //    std::cout << Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3]) << std::endl;
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
