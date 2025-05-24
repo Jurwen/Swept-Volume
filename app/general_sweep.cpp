@@ -164,6 +164,14 @@ int main(int argc, const char *argv[])
             implicit_sweep = star_I;
         } else if (args.function_file == "fertility") {
             implicit_sweep = fertility;
+        } else if (args.function_file == "fertility_v2") {
+            implicit_sweep = fertility_v2;
+        } else if (args.function_file == "fertility_v3") {
+            implicit_sweep = fertility_v3;
+        } else if (args.function_file == "fertility_v4") {
+            implicit_sweep = fertility_v4;
+        } else if (args.function_file == "fertility_v5") {
+            implicit_sweep = fertility_v5;
         } else if (args.function_file == "bunny_blend") {
             implicit_sweep = bunny_blend;
         } else if (args.function_file == "loopDloop_with_offset_v3") {
