@@ -68,47 +68,7 @@ int main(int argc, const char *argv[])
     Eigen::MatrixXi F;
     igl::AABB<Eigen::MatrixXd,3> tree;
     igl::FastWindingNumberBVH fwn_bvh;
-    //    std::filesystem::path data_dir(DATA_DIR);
-    //    static stf::Duchon doghead(
-    //                               data_dir / "test" / "dog_head" / "doghead_800_shifted.xyz",
-    //                               data_dir / "test" / "dog_head" / "doghead_800_shifted_coeff",
-    //                               {0.5, 0.7, 0.5}, 0.2, true);
-    //    std::cout << doghead.value(std::array<double, 3> {0.5, 0.5, 0.5}) << std::endl;
     std::function<std::pair<Scalar, Eigen::RowVector4d>(Eigen::RowVector4d)> implicit_sweep;
-    //    static std::vector<std::array<stf::Scalar, 3>> samples{
-    //        {0.3090, 0.6504, 0.5},
-    //        {0.3074, 0.6294, 0.5},
-    //        {0.3000, 0.5009, 0.5},
-    //        {0.3934, 0.4126, 0.5},
-    //        {0.4897, 0.3216, 0.5},
-    //        {0.6325, 0.3306, 0.5},
-    //        {0.6360, 0.3432, 0.5},
-    //        {0.6389, 0.3537, 0.5},
-    //        {0.5428, 0.3618, 0.5},
-    //        {0.4755, 0.4415, 0.5},
-    //        {0.3973, 0.5340, 0.5},
-    //        {0.4045, 0.6679, 0.5},
-    //        {0.4223, 0.6732, 0.5},
-    //        {0.4402, 0.6784, 0.5},
-    //        {0.4594, 0.5506, 0.5},
-    //        {0.5693, 0.4865, 0.5},
-    //        {0.6152, 0.4597, 0.5},
-    //        {0.6628, 0.4525, 0.5},
-    //        {0.7000, 0.4514, 0.5},
-    //    };
-    //    // clang-format on
-    //    stf::PolyBezier<3> transform(samples, false);
-    //    const double time_stamp = 30;
-    //    for (int i = 0; i < time_stamp; i++){
-    //        auto time = (double)i / time_stamp;
-    //        auto tran = transform.transform(std::array<double, 3>{0, 0, 0}, time);
-    //        std::cout << tran[0] << " " << tran[1] << " " << tran[2] << " " << std::endl;
-    //    }
-    //    {
-    //        double time = 1.0;
-    //        auto tran = transform.transform(std::array<double, 3>{0, 0, 0}, time);
-    //        std::cout << tran[0] << " " << tran[1] << " " << tran[2] << " " << std::endl;
-    //    }
     if (args.function_file != ""){
         if (args.function_file.find(".obj") != std::string::npos){
             igl::read_triangle_mesh(args.function_file,V,F);
@@ -137,13 +97,8 @@ int main(int argc, const char *argv[])
                 double s,sqrd,sqrd2,s2;
                 Eigen::Matrix3d VRt,Rt;
                 Eigen::RowVector3d xt,vt,pos,c,c2,xyz_grad,point_velocity;
-                //                auto tran = transform.transform(std::array<double, 3>{P(0), P(1), P(2)}, t);
-                //                auto velocity = transform.velocity(std::array<double, 3>{P(0), P(1), P(2)}, t);
                 trajLine3D2(t, xt, vt);
                 trajLineRot3D(t, Rt, VRt, rotation);
-                //                pos(0) = tran[0];
-                //                pos(1) = tran[1];
-                //                pos(2) = tran[2];
                 pos = ((Rt.inverse())*((P - xt).transpose())).transpose();
                 // fast winding number
                 Eigen::VectorXd w;
@@ -156,9 +111,6 @@ int main(int argc, const char *argv[])
                 xyz_grad  = (-s) * cp * Rt.inverse();
                 gradient.template head<3>() << xyz_grad;
                 point_velocity = (-Rt.inverse()*VRt*Rt.inverse()*(P.transpose() - xt.transpose()) - Rt.inverse()*vt.transpose()).transpose();
-                //                point_velocity(0) = velocity[0];
-                //                point_velocity(1) = velocity[1];
-                //                point_velocity(2) = velocity[2];
                 gradient(3) =  (-s) * cp.dot(point_velocity);
                 std::cout << s * cp.dot(point_velocity) << std::endl;
                 std::cout << "value: " << value << std::endl;
@@ -198,8 +150,6 @@ int main(int argc, const char *argv[])
             implicit_sweep = loopDloop_with_offset_v3;
         } else if (args.function_file == "VIPSS_blend") {
             implicit_sweep = VIPSS_blend;
-        } else if (args.function_file == "test"){
-            implicit_sweep = test;
         } else {
             throw std::runtime_error("ERROR: file format not supported");
         }
@@ -359,8 +309,9 @@ int main(int argc, const char *argv[])
         for (size_t i = 0; i < out_faces.size(); i++){
             igl::write_triangle_mesh(output_path + "/" + std::to_string(i) + ".obj", out_vertices, out_faces[i]);
         }
-    int after_tris = 0;
-    for (size_t i = 0; i < out_faces.size(); i++) after_tris += out_faces[i].rows();
+    for (size_t i = 0; i < out_faces.size(); i++){
+        igl::write_triangle_mesh(output_path + "/" + std::to_string(i) + ".obj", out_vertices, out_faces[i]);
+    }
 #ifdef batch_stats
     std::string stats_file = "stats.json";
     {

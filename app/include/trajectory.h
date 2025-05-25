@@ -826,7 +826,7 @@ std::pair<Scalar, Eigen::RowVector4d> letter_L(Eigen::RowVector4d inputs) {
 
 std::pair<Scalar, Eigen::RowVector4d> letter_L_blend(Eigen::RowVector4d inputs) {
     static stf::ImplicitSphere sphere(0.04, {0.0, 0.0, 0.0});
-    static stf::ImplicitTorus torus(0.04, 0.02, {0.0, 0.0, 0.0});
+    static stf::ImplicitTorus torus(0.03, 0.015, {0.0, 0.0, 0.0});
     static stf::PolyBezier<3> curve(
         {
             {0.6941,0.4189,0.45},
@@ -876,7 +876,11 @@ std::pair<Scalar, Eigen::RowVector4d> letter_L_blend(Eigen::RowVector4d inputs) 
     static stf::Rotation<3> torus_rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, 360 * 3);
     static stf::Compose<3> torus_curve(curve, torus_rotation);
     static stf::SweepFunction<3> torus_sweep(torus, torus_curve);
-    auto& sweep_function = torus_sweep;
+    static stf::OffsetFunction<3> offset_function(
+        torus_sweep,
+        [](stf::Scalar t) { return - 0.01 * std::sin(t * 6 * M_PI) - 0.01; },
+        [](stf::Scalar t) { return - 0.01 * std::cos(t * 6 * M_PI) * 6 * M_PI; });
+    auto& sweep_function = offset_function;
     //static stf::InterpolateFunction<3> sweep_function(
     //    sphere_sweep,
     //    torus_sweep,
@@ -955,41 +959,18 @@ std::pair<Scalar, Eigen::RowVector4d> VIPSS_blend(Eigen::RowVector4d inputs) {
                                data_dir / "test" / "dog_head" / "doghead_800.xyz",
                                data_dir / "test" / "dog_head" / "doghead_800_coeff",
                                {0, 0, 0}, 1, true);
-    static stf::Duchon planck(
-                               data_dir / "test" / "planck" / "planck_1011.xyz",
-                               data_dir / "test" / "planck" / "planck_1011_coeff",
+    static stf::Duchon kitten(
+                               data_dir / "test" / "kitten" / "kitten_893.xyz",
+                               data_dir / "test" / "kitten" / "kitten_893.coeff",
                                {0, 0, 0}, 1, true);
     static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, 90);
-    static stf::PolyBezier<3> bezier({{5, 5, 4}, {5, 5, 4.5}, {5, 5, 5}, {5, 5, 5.5}});
+    static stf::PolyBezier<3> bezier({{5, 4., 3.}, {5, 7., 4.5}, {5, 2.5, 4.5}, {5, 5.5, 3.}});
     stf::Compose<3> bezierRot(bezier, rotation);
     static stf::SweepFunction<3> dog_sweep(doghead, bezierRot);
-    static stf::SweepFunction<3> planck_sweep(planck, bezier);
-    static stf::InterpolateFunction<3> sweep_function(planck_sweep, dog_sweep);
-
+    static stf::SweepFunction<3> kitten_sweep(kitten, bezier);
+    static stf::InterpolateFunction<3> sweep_function(kitten_sweep, dog_sweep);
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
-//    std::cout << value << std::endl;
-//    std::cout << Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3]) << std::endl;
-    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
-}
-std::pair<Scalar, Eigen::RowVector4d> test(Eigen::RowVector4d inputs) {
-    std::filesystem::path data_dir(DATA_DIR);
-    static stf::Duchon doghead(
-                               data_dir / "test" / "dog_head" / "doghead_800_shifted.xyz",
-                               data_dir / "test" / "dog_head" / "doghead_800_shifted_coeff",
-                               {0, 0, 0}, 1, true);
-//    static stf::PolyBezier<3> bezier({{3, 5, 5}, {4, 5, 5}, {5, 5, 5}, {6, 5, 5}});
-//    static stf::PolyBezier<3> bezier({{3, 5, 5}, {4, 5, 5}, {5, 5, 5}, {6, 5, 5}});
-    static stf::PolyBezier<3> bezier({{4, 5, 5}, {6, 6, 5}, {3, 6, 5}, {5, 5, 5}});
-    static stf::SweepFunction<3> sweep_function(doghead, bezier);
-    //static stf::ImplicitSphere doghead(0.04, {0.0, 0.0, 0.0});
-    //static stf::PolyBezier<3> bezier({{0.14, 0.51, 0.5}, {0.38, 0.51, 0.503333}, {0.62, 0.51, 0.506667}, {0.86, 0.51, 0.51}});
-    //static stf::SweepFunction<3> sweep_function(doghead, bezier);
-
-    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
-//    std::cout << value << std::endl;
-//    std::cout << Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3]) << std::endl;
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
