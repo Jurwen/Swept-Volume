@@ -1164,6 +1164,26 @@ std::pair<Scalar, Eigen::RowVector4d> fertility_v5(Eigen::RowVector4d inputs) {
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
+std::pair<Scalar, Eigen::RowVector4d> fertility_v6(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+
+    static stf::Duchon base_shape(
+            data_dir / "vipss_data" / "fertility.xyz",
+            data_dir / "vipss_data" / "fertility_coeff.txt",
+            {0.0, 0.0, 0.0},
+            0.2, false);
+    static stf::PolyBezier<3> bezier(
+        {{0.2, 0.2, 0.3}, {1.4, 0.8, 0.4}, {-0.4, 0.8, 0.5}, {0.8, 0.2, 0.6}});
+    static stf::SweepFunction<3> sdf_sweep(base_shape, bezier);
+    static stf::OffsetFunction<3> sweep_function(
+        sdf_sweep,
+        [](stf::Scalar t) { return 0.1 * (1-t); },
+        [](stf::Scalar t) { return -0.1 ; });
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
 
 std::pair<Scalar, Eigen::RowVector4d> bunny_blend(Eigen::RowVector4d inputs) {
     std::filesystem::path data_dir(DATA_DIR);

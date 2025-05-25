@@ -172,6 +172,8 @@ int main(int argc, const char *argv[])
             implicit_sweep = fertility_v4;
         } else if (args.function_file == "fertility_v5") {
             implicit_sweep = fertility_v5;
+        } else if (args.function_file == "fertility_v6") {
+            implicit_sweep = fertility_v6;
         } else if (args.function_file == "bunny_blend") {
             implicit_sweep = bunny_blend;
         } else if (args.function_file == "loopDloop_with_offset_v3") {
