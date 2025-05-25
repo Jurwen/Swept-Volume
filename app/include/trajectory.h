@@ -962,7 +962,8 @@ std::pair<Scalar, Eigen::RowVector4d> star_S(Eigen::RowVector4d inputs) {
     std::string filename = (data_dir / "meshes" / "star2.obj").string();
 
     static MeshSDF sdf(filename, {0.0, 0.0, 0.0}, 0.1, -0.02);
-    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, 360);
+    static stf::ImplicitCapsule<3> sdf(0.025, {0.0, -0.06, 0.0}, {0, 0.06, 0});
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 1.0}, 360 * 5);
     //static stf::Translation<3> translation({0.0, -0.2, 0.0});
     static stf::PolyBezier<3> bezier(
         {{0.25, 0.5, 0.25}, {1.5, 0.5, 0.4}, {-0.5, 0.5, 0.6}, {0.75, 0.5, 0.75}});
@@ -979,7 +980,8 @@ std::pair<Scalar, Eigen::RowVector4d> star_D(Eigen::RowVector4d inputs) {
     std::string filename = (data_dir / "meshes" / "star2.obj").string();
 
     static MeshSDF sdf(filename, {0.0, 0.0, 0.0}, 0.1, -0.02);
-    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, 360);
+    static stf::ImplicitCapsule<3> sdf(0.025, {0.0, -0.06, 0.0}, {0, 0.06, 0});
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 1.0}, 360 * 5);
     static stf::PolyBezier<3> bezier(
         {{0.25, 0.5, 0.25}, {0.75, 0.5, 0.4}, {0.75, 0.5, 0.6}, {0.25, 0.5, 0.75}});
     static stf::Compose<3> transform(bezier, rotation);
@@ -1001,7 +1003,8 @@ std::pair<Scalar, Eigen::RowVector4d> star_F(Eigen::RowVector4d inputs) {
     std::string filename = (data_dir / "meshes" / "star2.obj").string();
 
     static MeshSDF sdf(filename, {0.0, 0.0, 0.0}, 0.1, -0.02);
-    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, 360);
+    static stf::ImplicitCapsule<3> sdf(0.025, {0.0, -0.06, 0.0}, {0, 0.06, 0});
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 1.0}, 360 * 5);
     static stf::PolyBezier<3> bezier(
         {{0.4, 0.5, 0.25}, {0.4, 0.5, 0.6}, {0.3, 0.5, 0.75}, {0.75, 0.5, 0.75}});
     static stf::Compose<3> transform(bezier, rotation);
