@@ -146,6 +146,30 @@ int main(int argc, const char *argv[])
             implicit_sweep = loopDloop_with_offset;
         } else if (args.function_file == "loopDloop_with_offset_v2") {
             implicit_sweep = loopDloop_with_offset_v2;
+        } else if (args.function_file == "doghead") {
+            implicit_sweep = doghead;
+        } else if (args.function_file == "star_S") {
+            implicit_sweep = star_S;
+        } else if (args.function_file == "star_D") {
+            implicit_sweep = star_D;
+        } else if (args.function_file == "star_F") {
+            implicit_sweep = star_F;
+        } else if (args.function_file == "star_I") {
+            implicit_sweep = star_I;
+        } else if (args.function_file == "fertility") {
+            implicit_sweep = fertility;
+        } else if (args.function_file == "fertility_v2") {
+            implicit_sweep = fertility_v2;
+        } else if (args.function_file == "fertility_v3") {
+            implicit_sweep = fertility_v3;
+        } else if (args.function_file == "fertility_v4") {
+            implicit_sweep = fertility_v4;
+        } else if (args.function_file == "fertility_v5") {
+            implicit_sweep = fertility_v5;
+        } else if (args.function_file == "fertility_v6") {
+            implicit_sweep = fertility_v6;
+        } else if (args.function_file == "bunny_blend") {
+            implicit_sweep = bunny_blend;
         } else if (args.function_file == "loopDloop_with_offset_v3") {
             implicit_sweep = loopDloop_with_offset_v3;
         } else if (args.function_file == "VIPSS_blend") {
