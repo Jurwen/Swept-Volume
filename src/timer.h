@@ -11,32 +11,39 @@
 #include <chrono>
 #include <array>
 #include <string>
+
+#define time_profile 0
+
 ///The current amount in time profiling.
-const int timer_amount = 9;
+const int timer_amount = 11;
 
 /// The labels for timing stats.
-const std::array<std::string, timer_amount> time_label = {"temporal splits",
-    "spatial splits",
-    "create vertex column",
-    "add connectivity",
-    "extrude tet column",
-    "evaluate tet column",
-    "first function",
+const std::array<std::string, timer_amount> time_label = {"first function",
+    "first part set up",
+    "first function bezier",
+    "non simple poly",
+    "compute caps",
+    "extract first isosurface",
+    "find intersect",
+    "first part",
     "second function",
-    "refinement criteria"
+    "refinement criteria",
+    "second part"
 };
 
 /// the enum for the timing labels.
 enum timeProfileName{
-    time_splits,
-    space_splits,
-    init_vert_col,
-    add_connectivity,
-    extrude_tet_col,
-    eval_tet_col,
     first_func,
+    first_part_setup,
+    first_bezier,
+    non_simple_poly,
+    compute_caps,
+    extract_first_iso,
+    find_intersect,
+    first_part,
     second_func,
-    ref_crit
+    ref_crit,
+    second_part
 };
 
 /// add the timer recorded to the profiling timer.
@@ -44,7 +51,10 @@ enum timeProfileName{
 /// @param[in] timer            The time recorded from this temporary timer.
 ///
 /// @return         The updated time profile.
-std::array<double, timer_amount> combine_timer (const std::array<double, timer_amount> &profile, const std::array<double, timer_amount> &timer);
+inline void combine_timer(std::array<double, timer_amount>& profile, std::array<size_t, timer_amount>& profileCount, const size_t& index, const double& ms){
+    profile[index] += ms;
+    profileCount[index] ++;
+}
 
 template<typename Fn>
 class Timer
@@ -66,46 +76,15 @@ public:
         auto start = std::chrono::time_point_cast<std::chrono::microseconds>(starterTime).time_since_epoch().count();
         auto end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
         auto duration = end - start;
-        double ms = duration * 0.001;
-        switch (m_Name){
-            case time_splits:
-                m_timeProfile[0] += ms;
-                break;
-            case space_splits:
-                m_timeProfile[1] += ms;
-                break;
-            case init_vert_col:
-                m_timeProfile[2] += ms;
-                break;
-            case add_connectivity:
-                m_timeProfile[3] += ms;
-                break;
-            case extrude_tet_col:
-                m_timeProfile[4] += ms;
-                break;
-            case eval_tet_col:
-                m_timeProfile[5] += ms;
-                break;
-            case first_func:
-                m_timeProfile[6] += ms;
-                break;
-            case second_func:
-                m_timeProfile[7] += ms;
-                break;
-            case ref_crit:
-                m_timeProfile[8] += ms;
-                break;
-            default:
-                throw std::runtime_error("no matching time profile identifier");
-        }
-        m_Func(m_timeProfile);
+        ms = duration * 1e-3;
+        m_Func(m_Name, ms);
     }
     
     
 private:
     timeProfileName m_Name;
     Fn m_Func;
-    std::array<double, timer_amount> m_timeProfile = {0,0,0,0,0,0,0,0};
+    double ms = 0;
     std::chrono::time_point<std::chrono::high_resolution_clock> starterTime;
 };
 

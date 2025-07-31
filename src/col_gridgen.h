@@ -30,6 +30,7 @@ bool gridRefine(mtet::MTetMesh &grid,
                 const double threshold,
                 const double traj_threshold,
                 const int max_splits,
-                std::array<double, timer_amount>& profileTimer);
+                std::array<double, timer_amount>& profileTimer,
+                std::array<size_t, timer_amount>& profileCount);
 
 #endif /* col_gridgen_h */

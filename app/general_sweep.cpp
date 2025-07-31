@@ -19,8 +19,10 @@
 #include "post_processing.h"
 #include "timer.h"
 
-#define SAVE_CONTOUR
-//#define batch_stats
+#define SAVE_CONTOUR 0
+#define batch_stats 0
+#define batch_time 1
+
 int main(int argc, const char *argv[])
 {
     struct
@@ -189,10 +191,11 @@ int main(int argc, const char *argv[])
     vertExtrude vertexMap;
     insidenessMap insideMap;
     std::cout << "Start to generate the background grid..." << std::endl;
-    std::array<double, timer_amount> profileTimer = {0, 0, 0, 0, 0, 0, 0, 0};
+    std::array<double, timer_amount> profileTimer{};
+    std::array<size_t, timer_amount> profileCount{};
     auto starterTime = std::chrono::high_resolution_clock::now();
     spdlog::set_level(spdlog::level::off);
-    if (!gridRefine(grid, vertexMap, insideMap, implicit_sweep, threshold, traj_threshold, max_splits, profileTimer)){
+    if (!gridRefine(grid, vertexMap, insideMap, implicit_sweep, threshold, traj_threshold, max_splits, profileTimer, profileCount)){
         throw std::runtime_error("ERROR: grid generation failed");
         return 0;
     };
@@ -267,7 +270,7 @@ int main(int argc, const char *argv[])
     auto surface_2_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
     std::cout << "Surfacing time: " << (surface_2_end - surface_1_end) * 0.000001 << std::endl;
     
-#ifdef SAVE_CONTOUR
+#if SAVE_CONTOUR
     mtetcol::save_contour(output_path + "/temporal_grid.obj", contour);
     mtetcol::save_contour(output_path + "/contour.msh", isocontour);
     
@@ -329,14 +332,20 @@ int main(int argc, const char *argv[])
     stopperTime = std::chrono::high_resolution_clock::now();
     auto arrangement_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
     std::cout << "Arrangement time: " << (arrangement_end - surface_2_end) * 0.000001 << std::endl;
+    for (size_t i = 0; i < timer_amount; i++){
+        std::cout
+        << time_label[i] << " "
+        << profileTimer[i] << " "
+        << profileCount[i] << std::endl;
+    }
     igl::write_triangle_mesh(output_path + "/mesh" + ".obj", vertices, faces);
-        for (size_t i = 0; i < out_faces.size(); i++){
-            igl::write_triangle_mesh(output_path + "/" + std::to_string(i) + ".obj", out_vertices, out_faces[i]);
-        }
     for (size_t i = 0; i < out_faces.size(); i++){
         igl::write_triangle_mesh(output_path + "/" + std::to_string(i) + ".obj", out_vertices, out_faces[i]);
     }
-#ifdef batch_stats
+    for (size_t i = 0; i < out_faces.size(); i++){
+        igl::write_triangle_mesh(output_path + "/" + std::to_string(i) + ".obj", out_vertices, out_faces[i]);
+    }
+#if batch_stats
     std::string stats_file = "stats.json";
     {
         std::vector<std::array<double, 3>> verts_math;
@@ -362,6 +371,20 @@ int main(int argc, const char *argv[])
         jOut["non_tet polys"] = num_non_tet_poly;
         jOut["tris before arrangement"] = num_triangles;
         jOut["tris after arrangement"] = after_tris;
+        fout << jOut.dump(4, ' ', true, json::error_handler_t::replace) << std::endl;
+        fout.close();
+    }
+#endif
+    
+#if batch_time
+    std::string time_file = "time.json";
+    {
+        using json = nlohmann::json;
+        std::ofstream fout(time_file.c_str(),std::ios::app);
+        json jOut;
+        for (size_t i = 0; i < timer_amount; i++){
+            jOut[time_label[i]] = {profileTimer[i], profileCount[i]};
+        }
         fout << jOut.dump(4, ' ', true, json::error_handler_t::replace) << std::endl;
         fout.close();
     }
