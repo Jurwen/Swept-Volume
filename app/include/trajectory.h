@@ -1029,7 +1029,7 @@ std::pair<Scalar, Eigen::RowVector4d> star_I(Eigen::RowVector4d inputs) {
     static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, 300);
     static stf::Translation<3> translation({0.0, 0.0, -0.5});
     static stf::Compose<3> transform(translation, rotation);
-    static stf::SweepFunction<3> sweep_function(sdf, translation);
+    static stf::SweepFunction<3> sweep_function(sdf, transform);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
