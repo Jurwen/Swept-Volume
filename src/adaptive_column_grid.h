@@ -17,9 +17,12 @@
 #include <math.h>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <Eigen/LU>
 
 using namespace mtet;
+
+constexpr int MAX_TIME           = 1 << 10;                 // 1024
+constexpr int MIN_TIME           = 1 << 2;                  //   4
+constexpr int MAX_CELL_INTERVALS = 4 * (MAX_TIME / MIN_TIME); // 1024
 
 /// A 4D vertex, each is equipped with the following parameters:
 /// @param time: an integer-valued time stamp. The default max of this value is 1024. The fourth coordinate of this vertex is a floating point of this value divided by 1024.
@@ -33,6 +36,15 @@ public:
     Eigen::RowVector4d coord;
     std::pair<Scalar, Eigen::RowVector4d> valGradList;
     vertex4d() = default;
+    vertex4d(int t,
+             const Eigen::RowVector4d& c = Eigen::RowVector4d::Zero(),
+             const std::pair<Scalar, Eigen::RowVector4d>& vg
+             = {0, Eigen::RowVector4d::Zero()})
+    : time(t)          // initializer list
+    , coord(c)
+    , valGradList(vg)
+    {}
+    ~vertex4d() = default;
 };
 
 auto compVertex = [](vertex4d v0, vertex4d v1){

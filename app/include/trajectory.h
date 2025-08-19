@@ -620,7 +620,7 @@ std::pair<Scalar, Eigen::RowVector4d> sphere_spiral(Eigen::RowVector4d inputs) {
     static stf::SweepFunction<3> sweep_function(sphere, polybezier);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
@@ -1032,7 +1032,7 @@ std::pair<Scalar, Eigen::RowVector4d> star_I(Eigen::RowVector4d inputs) {
     static stf::SweepFunction<3> sweep_function(sdf, translation);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
@@ -1221,18 +1221,50 @@ std::pair<Scalar, Eigen::RowVector4d> loopDloop_with_offset_v3(Eigen::RowVector4
 std::pair<Scalar, Eigen::RowVector4d> VIPSS_blend(Eigen::RowVector4d inputs) {
     std::filesystem::path data_dir(DATA_DIR);
     static stf::Duchon doghead(
-                               data_dir / "vipss_data" / "doghead_800.xyz",
-                               data_dir / "vipss_data" / "doghead_800_coeff",
+                               data_dir / "test" / "dog_head" / "doghead_800.xyz",
+                               data_dir / "test" / "dog_head" / "doghead_800_coeff",
                                {0, 0, 0}, 1, true);
     static stf::Duchon kitten(
-                               data_dir / "vipss_data" / "kitten_893.xyz",
-                               data_dir / "vipss_data" / "kitten_893.coeff",
+                               data_dir / "test" / "kitten" / "kitten_893.xyz",
+                               data_dir / "test" / "kitten" / "kitten_893.coeff",
                                {0, 0, 0}, 1, true);
     static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, 90);
     static stf::PolyBezier<3> bezier({{5, 4., 3.}, {5, 7., 4.5}, {5, 2.5, 4.5}, {5, 5.5, 3.}});
     stf::Compose<3> bezierRot(bezier, rotation);
     static stf::SweepFunction<3> dog_sweep(doghead, bezierRot);
     static stf::SweepFunction<3> kitten_sweep(kitten, bezier);
+    static stf::InterpolateFunction<3> sweep_function(kitten_sweep, dog_sweep);
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> VIPSS_blend2(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+    static stf::Duchon doghead(
+                               data_dir / "vipss_data" / "doghead_800.xyz",
+                               data_dir / "vipss_data" / "doghead_800_coeff",
+                               {5, 5, 3}, 1, true);
+    static stf::Duchon kitten(
+                               data_dir / "vipss_data" / "kitten_893.xyz",
+                               data_dir / "vipss_data" / "kitten_893_coeff",
+                               {5, 5, 3}, 1, true);
+    //static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, 90);
+    //static stf::PolyBezier<3> bezier({{5, 4., 3.}, {5, 7., 4.5}, {5, 2.5, 4.5}, {5, 5.5, 3.}});
+    
+    //New Trajectory:
+    static stf::Rotation<3> rotation({4.1, 5, 3}, {0.0, 1.0, 0.0}, 180+90);
+    static stf::Rotation<3> rotation_dog({5, 5, 3}, {0.0, 1.0, 0.0}, 45);
+//    static stf::Translation<3> translation({0, 0.0, 0});
+    static stf::Translation<3> translation({-2, 0.0, -1.5});
+//    stf::Compose<3> bezierRot(bezier, rotation);
+//    static stf::SweepFunction<3> dog_sweep(doghead, bezierRot);
+//    static stf::SweepFunction<3> kitten_sweep(kitten, bezier);
+//    static stf::InterpolateFunction<3> sweep_function(kitten_sweep, dog_sweep);
+    stf::Compose<3> bezierRot(translation, rotation);
+    stf::Compose<3> rot_dog(bezierRot, rotation_dog);
+    static stf::SweepFunction<3> dog_sweep(doghead, rot_dog);
+    static stf::SweepFunction<3> kitten_sweep(kitten, bezierRot);
     static stf::InterpolateFunction<3> sweep_function(kitten_sweep, dog_sweep);
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
