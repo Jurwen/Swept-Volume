@@ -1255,12 +1255,7 @@ std::pair<Scalar, Eigen::RowVector4d> VIPSS_blend2(Eigen::RowVector4d inputs) {
     //New Trajectory:
     static stf::Rotation<3> rotation({4.1, 5, 3}, {0.0, 1.0, 0.0}, 180+90);
     static stf::Rotation<3> rotation_dog({5, 5, 3}, {0.0, 1.0, 0.0}, 45);
-//    static stf::Translation<3> translation({0, 0.0, 0});
     static stf::Translation<3> translation({-2, 0.0, -1.5});
-//    stf::Compose<3> bezierRot(bezier, rotation);
-//    static stf::SweepFunction<3> dog_sweep(doghead, bezierRot);
-//    static stf::SweepFunction<3> kitten_sweep(kitten, bezier);
-//    static stf::InterpolateFunction<3> sweep_function(kitten_sweep, dog_sweep);
     stf::Compose<3> bezierRot(translation, rotation);
     stf::Compose<3> rot_dog(bezierRot, rotation_dog);
     static stf::SweepFunction<3> dog_sweep(doghead, rot_dog);
@@ -1271,4 +1266,113 @@ std::pair<Scalar, Eigen::RowVector4d> VIPSS_blend2(Eigen::RowVector4d inputs) {
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
+std::pair<Scalar, Eigen::RowVector4d> VIPSS_blend3(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+    static stf::Duchon botijo(
+                              data_dir / "vipss_data" / "botijo_1427_out.xyz",
+                              data_dir / "vipss_data" / "botijo_1427_coeff",
+                              {5, 5, 3}, 1, true);
+    static stf::Duchon csg(
+                             data_dir / "vipss_data" / "csg_out.xyz",
+                             data_dir / "vipss_data" / "csg_coeff",
+                             {5, 5, 3}, 1, false);
+    //New Trajectory:
+    static stf::Rotation<3> rotation({4.1, 5, 3}, {0.0, 1.0, 0.0}, 180+90);
+    static stf::Rotation<3> rotation_dog({5, 5, 3}, {1.0, 0.0, 0.0}, 90);
+    static stf::Translation<3> translation({-1.6, 0.0, -1.6});
+    stf::Compose<3> bezierRot(translation, rotation);
+    stf::Compose<3> rot_dog(bezierRot, rotation_dog);
+    static stf::SweepFunction<3> dog_sweep(csg, rot_dog);
+    static stf::SweepFunction<3> kitten_sweep(botijo, bezierRot);
+    static stf::InterpolateFunction<3> sweep_function(kitten_sweep, dog_sweep);
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> VIPSS_blend_S(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+    static stf::Duchon botijo(
+                              data_dir / "vipss_data" / "botijo_1427_out.xyz",
+                              data_dir / "vipss_data" / "botijo_1427_coeff",
+                              {0, 0, 0}, 0.2, true);
+    static stf::Duchon csg(
+                           data_dir / "vipss_data" / "csg_out.xyz",
+                           data_dir / "vipss_data" / "csg_coeff",
+                           {0, 0, 0}, 0.2, false);
+    
+    static stf::Duchon base_shape(
+                                  data_dir / "vipss_data" / "fertility.xyz",
+                                  data_dir / "vipss_data" / "fertility_coeff.txt",
+                                  {0, 0, 0},
+                                  0.2, false);
+    static stf::Polyline<3> polyline({{0.2, 0.5, 0.5}, {0.8, 0.5, 0.5}});
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 1.0}, 360 * 3);
+    static stf::Compose<3> transform(polyline, rotation);
+    static stf::SweepFunction<3> botijo_sweep(botijo, transform);
+    static stf::SweepFunction<3> csg_sweep(base_shape, transform);
+    static stf::InterpolateFunction<3> sweep_function(botijo_sweep, csg_sweep);
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> mesh_I(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+    std::string filename = (data_dir / "meshes" / "ball.obj").string();
+    static MeshSDF sdf(filename, {0.5, 0.25, 0.5}, 0.7, -0.015);
+    static stf::Duchon wheel(
+                              data_dir / "vipss_data" / "wheel.xyz",
+                              data_dir / "vipss_data" / "wheel_coeff",
+                              {0.5, 0.5, 0.15}, 0.8, true);
+    static stf::Rotation<3> rotation({0.5, 0.25, 0.5}, {0.0, 0.0, 1.0}, 72);
+    static stf::Translation<3> translation({0.0, -0.5, -0.0});
+    static stf::Compose<3> transform(translation, rotation);
+    static stf::SweepFunction<3> sweep_function(sdf, transform);
+
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+ std::pair<Scalar, Eigen::RowVector4d> wheel_I(Eigen::RowVector4d inputs) {
+     std::filesystem::path data_dir(DATA_DIR);
+     std::string filename = (data_dir / "meshes" / "bird_cage.obj").string();
+     static MeshSDF sdf(filename, {0.5, 0.5, 0.25}, 0.8, -0.025);
+     static stf::Duchon wheel(
+                               data_dir / "vipss_data" / "wheel.xyz",
+                               data_dir / "vipss_data" / "wheel_coeff",
+                               {0.5, 0.5, 0.15}, 0.8, true);
+     static stf::Rotation<3> rotation({0.5, 0.5, 0.5}, {0.0, 0.0, 1.0}, 180);
+     static stf::Translation<3> translation({0.0, 0.0, -0.5});
+     static stf::Compose<3> transform(translation, rotation);
+     static stf::SweepFunction<3> sweep_function(wheel, transform);
+
+     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+     auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+ }
+
+std::pair<Scalar, Eigen::RowVector4d> wheel_I_shrink(Eigen::RowVector4d inputs) {
+    std::filesystem::path data_dir(DATA_DIR);
+    std::string filename = (data_dir / "meshes" / "bird_cage.obj").string();
+    static MeshSDF sdf(filename, {0.5, 0.5, 0.25}, 0.8, -0.025);
+    static stf::Duchon wheel(
+                              data_dir / "vipss_data" / "wheel.xyz",
+                              data_dir / "vipss_data" / "wheel_coeff",
+                              {0.5, 0.5, 0.25}, 0.8, true);
+    static stf::Duchon wheel_shrink(
+                              data_dir / "vipss_data" / "wheel.xyz",
+                              data_dir / "vipss_data" / "wheel_coeff",
+                              {0.5, 0.5, 0.25}, 0.6, true);
+    static stf::Rotation<3> rotation({0.5, 0.5, 0.5}, {0.0, 0.0, 1.0}, 60);
+    static stf::Translation<3> translation({0.0, -0.1, -0.5});
+    static stf::Compose<3> transform(translation, rotation);
+    static stf::SweepFunction<3> wheel_function(wheel, transform);
+    static stf::SweepFunction<3> shrink_sweep(wheel_shrink, transform);
+    static stf::InterpolateFunction<3> sweep_function(wheel_function, shrink_sweep);
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
 #endif /* trajectory_h */

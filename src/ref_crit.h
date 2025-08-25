@@ -98,6 +98,14 @@ bool refineFt(
               std::array<double, timer_amount>& profileTimer,
               std::array<size_t, timer_amount>& profileCount);
 
+/// Refine critiera that only invokes the bezier computation. This is the samllest testing unit for comparing the run speed across different methods of constructing bezier simplex.
+bool refineFtBezier(
+                    const std::array<vertex4d*, 5>& verts,
+                    const double threshold,
+                    bool& inside,
+                    bool& choice,
+                    bool& zeroX);
+
 /// 3D (projected) distance check for the sweep function for 3D tetrahedra lives in the 4D domain, i.e., tets with 4D vertices. These tets are the results after the first stage subdivision.
 /// @param[in] pts         An array of the coordinates of 4 4D vertices.
 /// @param[in] vals            A list of 4 function values of these 4D vertices.

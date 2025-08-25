@@ -45,8 +45,6 @@ const std::array<std::array<size_t, 5>, 35> elevMatrix {{{0, 15, 15, 15, 15}, {1
 
 // Bézier stage-2 linear map  (outputs 35 control values from the 30-vector G)
 
-
-//static const Eigen::Matrix<double,35,30> BEZIER_M2 {{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {1, 0, 0, 0, 0, -(1.0 / 3.0), 1.0 / 3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {1, 0, 0, 0, 0, -(1.0 / 3.0), 0, 1.0 / 3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {1, 0, 0, 0, 0, -(1.0 / 3.0), 0, 0, 1.0 / 3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {1, 0, 0, 0, 0, -(1.0 / 3.0), 0, 0, 0, 1.0 / 3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1.0 / 3.0, -(1.0 / 3.0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0}, {0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -(1.0 / 3.0), 1.0 / 3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -(1.0 / 3.0), 0, 1.0 / 3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -(1.0 / 3.0), 0, 0, 1.0 / 3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0 / 3.0, 0, -(1.0 / 3.0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0 / 3.0, -(1.0 / 3.0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -(1.0 / 3.0), 1.0 / 3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -(1.0 / 3.0), 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0 / 3.0, 0, 0, -(1.0 / 3.0), 0, 0, 0, 0, 0, 0}, {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0 / 3.0, 0, -(1.0 / 3.0), 0, 0, 0, 0, 0, 0}, {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0 / 3.0, -(1.0 / 3.0), 0, 0, 0, 0, 0, 0}, {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -(1.0 / 3.0), 1.0 / 3.0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0 / 3.0, 0, 0, 0, -(1.0 / 3.0)}, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0 / 3.0, 0, 0, -(1.0 / 3.0)}, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0 / 3.0, 0, -(1.0 / 3.0)}, {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0 / 3.0, -(1.0 / 3.0)}, {1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 0, 0, -(1.0 / 6.0), 1.0 / 12.0, 1.0 / 12.0, 0, 0, 1.0 / 12.0, -(1.0 / 6.0), 1.0 / 12.0, 0, 0, 1.0 / 12.0, 1.0 /12.0, -(1.0 / 6.0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {1.0 / 3.0, 1.0 / 3.0, 0, 1.0 / 3.0, 0, -(1.0 / 6.0), 1.0 / 12.0, 0, 1.0 / 12.0, 0, 1.0 / 12.0, -(1.0 / 6.0), 0, 1.0 / 12.0, 0, 0, 0, 0, 0, 0, 1.0 / 12.0, 1.0 / 12.0, 0, -(1.0 / 6.0), 0, 0, 0, 0, 0, 0}, {1.0 / 3.0, 1.0 / 3.0, 0, 0, 1.0 / 3.0, -(1.0 / 6.0), 1.0 / 12.0, 0, 0, 1.0 / 12.0, 1.0 / 12.0, -(1.0 / 6.0), 0, 0, 1.0 / 12.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0 / 12.0, 1.0 / 12.0, 0, 0, -(1.0 / 6.0)}, {1.0 / 3.0, 0, 1.0 / 3.0, 1.0 / 3.0, 0, -(1.0 / 6.0), 0, 1.0 / 12.0, 1.0 / 12.0, 0, 0, 0, 0, 0, 0, 1.0 / 12.0, 0, -(1.0 / 6.0), 1.0 / 12.0, 0, 1.0 / 12.0, 0, 1.0 / 12.0, -(1.0 / 6.0), 0, 0, 0, 0, 0, 0}, {1.0 / 3.0, 0, 1.0 / 3.0, 0, 1.0 / 3.0, -(1.0 / 6.0), 0, 1.0 / 12.0, 0, 1.0 / 12.0, 0, 0, 0, 0, 0, 1.0 / 12.0, 0, -(1.0 / 6.0), 0, 1.0 / 12.0, 0, 0, 0, 0, 0, 1.0 / 12.0, 0, 1.0 / 12.0, 0, -(1.0 / 6.0)}, {1.0 / 3.0, 0, 0, 1.0 / 3.0, 1.0 /3.0, -(1.0 / 6.0), 0, 0, 1.0 / 12.0, 1.0 / 12.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0 / 12.0, 0,0, -(1.0 / 6.0), 1.0 / 12.0, 1.0 / 12.0, 0, 0, 1.0 / 12.0, -(1.0 / 6.0)}, {0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 0, 0, 0, 0, 0, 0, 0, -(1.0 / 6.0), 1.0 / 12.0, 1.0 / 12.0, 0, 0, 1.0 / 12.0, -(1.0 / 6.0), 1.0 / 12.0, 0, 0, 1.0 / 12.0, 1.0 / 12.0, -(1.0 / 6.0), 0, 0, 0, 0, 0, 0}, {0, 1.0 / 3.0, 1.0 / 3.0, 0, 1.0 / 3.0, 0, 0, 0, 0, 0, 0, -(1.0 / 6.0), 1.0 / 12.0, 0, 1.0 / 12.0, 0, 1.0 / 12.0, -(1.0 / 6.0), 0, 1.0 / 12.0, 0, 0, 0, 0, 0, 0, 1.0 / 12.0, 1.0 / 12.0, 0, -(1.0 / 6.0)}, {0, 1.0 / 3.0, 0, 1.0 / 3.0, 1.0 / 3.0, 0, 0, 0, 0, 0, 0, -(1.0 / 6.0), 0, 1.0 / 12.0, 1.0 / 12.0, 0, 0, 0, 0, 0, 0, 1.0 / 12.0, 0, -(1.0 / 6.0), 1.0 / 12.0, 0, 1.0 / 12.0, 0, 1.0 / 12.0, -(1.0 / 6.0)}, {0, 0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -(1.0 / 6.0), 1.0 / 12.0, 1.0 / 12.0, 0, 0, 1.0 / 12.0, -(1.0 / 6.0), 1.0 / 12.0, 0, 0, 1.0 / 12.0, 1.0 / 12.0, -(1.0 / 6.0)}};
 /// returns a `bool` value that `true` represents positive and `false` represents negative of the input value `x`.
 inline bool get_sign(const double x) {
     return x > 0;
@@ -54,154 +52,6 @@ inline bool get_sign(const double x) {
 
 const std::array<int, 16> topFIndices = {0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 20, 21, 23, 26};
 const std::array<int, 16> botFIndices = {5, 6, 7, 9, 10, 11, 13, 14, 15, 17, 18, 19, 26, 27, 28, 29};
-
-//bool bezier4D(
-//              const std::array<Eigen::RowVector4d, 5>& pts,
-//              const std::array<double, 5>& vals,
-//              const std::array<Eigen::RowVector4d, 5>& grads,
-//              Eigen::RowVector<double, 35>& bezier,
-//              bool& inside)
-//{
-//    // Decompose inputs
-//    const auto& p1 = pts[0];
-//    const auto& p2 = pts[1];
-//    const auto& p3 = pts[2];
-//    const auto& p4 = pts[3];
-//    const auto& p5 = pts[4];
-//    
-//    const auto& v1 = vals[0];
-//    const auto& v2 = vals[1];
-//    const auto& v3 = vals[2];
-//    const auto& v4 = vals[3];
-//    const auto& v5 = vals[4];
-//    
-//    const auto& g1 = grads[0];
-//    const auto& g2 = grads[1];
-//    const auto& g3 = grads[2];
-//    const auto& g4 = grads[3];
-//    const auto& g5 = grads[4];
-//    
-//    const auto& p12 = p1 - p2;
-//    const auto& p13 = p1 - p3;
-//    const auto& p14 = p1 - p4;
-//    const auto& p15 = p1 - p5;
-//    const auto& p23 = p2 - p3;
-//    const auto& p24 = p2 - p4;
-//    const auto& p25 = p2 - p5;
-//    const auto& p34 = p3 - p4;
-//    const auto& p35 = p3 - p5;
-//    const auto& p45 = p4 - p5;
-//    // Compute edge values
-//    const std::array<double, 4>& v1s = {
-//        v1 - g1.dot(p12) / 3,
-//        v1 - g1.dot(p13) / 3,
-//        v1 - g1.dot(p14) / 3,
-//        v1 - g1.dot(p15) / 3
-//    };
-//    
-//    const std::array<double, 4>& v2s = {
-//        v2 + g2.dot(p12) / 3,
-//        v2 - g2.dot(p23) / 3,
-//        v2 - g2.dot(p24) / 3,
-//        v2 - g2.dot(p25) / 3
-//    };
-//    
-//    const std::array<double, 4>& v3s = {
-//        v3 + g3.dot(p13) / 3,
-//        v3 + g3.dot(p23) / 3,
-//        v3 - g3.dot(p34) / 3,
-//        v3 - g3.dot(p35) / 3
-//    };
-//    
-//    const std::array<double, 4>& v4s = {
-//        v4 + g4.dot(p14) / 3,
-//        v4 + g4.dot(p24) / 3,
-//        v4 + g4.dot(p34) / 3,
-//        v4 - g4.dot(p45) / 3
-//    };
-//    
-//    const std::array<double, 4>& v5s = {
-//        v5 + g5.dot(p15) / 3,
-//        v5 + g5.dot(p25) / 3,
-//        v5 + g5.dot(p35) / 3,
-//        v5 + g5.dot(p45) / 3
-//    };
-//    
-//    // Compute face values
-//    const double e1 = (v1s[0] + v1s[1] + v2s[0] + v2s[1] + v3s[0] + v3s[1]) / 6;
-//    const double face1 = e1 + (e1 - (v1 + v2 + v3) / 3) / 2;
-//    const double e2 = (v1s[0] + v1s[2] + v2s[0] + v2s[2] + v4s[0] + v4s[1]) / 6;
-//    const double face2 = e2 + (e2 - (v1 + v2 + v4) / 3) / 2;
-//    
-//    const double e3 = (v1s[0] + v1s[3] + v2s[0] + v2s[3] + v5s[0] + v5s[1]) / 6;
-//    const double face3 = e3 + (e3 - (v1 + v2 + v5) / 3) / 2;
-//    
-//    const double e4 = (v1s[1] + v1s[2] + v3s[0] + v3s[2] + v4s[0] + v4s[2]) / 6;
-//    const double face4 = e4 + (e4 - (v1 + v3 + v4) / 3) / 2;
-//    
-//    const double e5 = (v1s[1] + v1s[3] + v3s[0] + v3s[3] + v5s[0] + v5s[2]) / 6;
-//    const double face5 = e5 + (e5 - (v1 + v3 + v5) / 3) / 2;
-//    
-//    const double e6 = (v1s[2] + v1s[3] + v4s[0] + v4s[3] + v5s[0] + v5s[3]) / 6;
-//    const double face6 = e6 + (e6 - (v1 + v4 + v5) / 3) / 2;
-//    
-//    const double e7 = (v2s[1] + v2s[2] + v3s[1] + v3s[2] + v4s[1] + v4s[2]) / 6;
-//    const double face7 = e7 + (e7 - (v2 + v3 + v4) / 3) / 2;
-//    
-//    const double e8 = (v2s[1] + v2s[3] + v3s[1] + v3s[3] + v5s[1] + v5s[2]) / 6;
-//    const double face8 = e8 + (e8 - (v2 + v3 + v5) / 3) / 2;
-//    
-//    const double e9 = (v2s[2] + v2s[3] + v4s[1] + v4s[3] + v5s[1] + v5s[3]) / 6;
-//    const double face9 = e9 + (e9 - (v2 + v4 + v5) / 3) / 2;
-//    
-//    const double e10 = (v3s[2] + v3s[3] + v4s[2] + v4s[3] + v5s[2] + v5s[3]) / 6;
-//    const double face10 = e10 + (e10 - (v3 + v4 + v5) / 3) / 2;
-////    // Combine results into a single row vector
-////    using M5x4R = Eigen::Matrix<double,5,4,Eigen::RowMajor>;
-////    using V5    = Eigen::Matrix<double,5,1>;
-////    using V25   = Eigen::Matrix<double,25,1>;
-////
-////    // ---------- 1. zero-copy views over the input blocks ----------------------
-////    // pts  : std::array<Eigen::RowVector4d,5>
-////    // grads: std::array<Eigen::RowVector4d,5>
-////    // vals : std::array<double,5>
-////
-////    const auto* pPtr = reinterpret_cast<const double*>(pts.data());
-////    const auto* gPtr = reinterpret_cast<const double*>(grads.data());
-////
-////    Eigen::Map<const M5x4R> Pmat(pPtr);   // 5×4, row-major view   (no copy)
-////    Eigen::Map<const M5x4R> Gmat(gPtr);   // 5×4, row-major view   (no copy)
-////    Eigen::Map<const V5>    v_map(vals.data());                 // 5×1 view
-////
-////    // ---------- 2. 25 dot-products in one SIMD GEMM ---------------------------
-////    Eigen::Matrix<double,5,5,Eigen::RowMajor> D = Gmat * Pmat.transpose();
-////    // D(i,j) = g_i · p_j , stored row-major so the flattened order is g1·p1 … g5·p5
-////
-////    // ---------- 3. assemble the length-30 vector G ----------------------------
-////    Eigen::Matrix<double,30,1> G;
-////    G.head<5>()  = v_map;                                     // copy 5 doubles
-////    Eigen::Map<const V25> flatD(D.data());                    // row-major view
-////    G.tail<25>() = flatD;                                     // copy 25 doubles
-////
-////    // ---------- 4. final multiply (no temporary) ------------------------------
-//////    bezier.noalias() = BEZIER_M2 * G;      // 35×30 · 30×1
-//
-//    bezier << v1, v2, v3, v4, v5,
-//    v1s[0], v1s[1], v1s[2], v1s[3],
-//    v2s[0], v2s[1], v2s[2], v2s[3],
-//    v3s[0], v3s[1], v3s[2], v3s[3],
-//    v4s[0], v4s[1], v4s[2], v4s[3],
-//    v5s[0], v5s[1], v5s[2], v5s[3],
-//    face1, face2, face3, face4, face5, face6, face7, face8, face9, face10;
-//#ifndef no_inside
-//    inside = inside || bezier({0,1,2,3,5, 6, 7, 9, 10, 11, 13, 14, 15, 17, 18, 19, 25, 26, 28, 31}).maxCoeff() <= 0;
-//    inside = inside || bezier({1,2,3,4,10, 11, 12, 14, 15, 16, 18, 19, 20, 22, 23, 24, 31, 32, 33, 34}).maxCoeff() <= 0;
-//#endif
-//    if (get_sign(bezier.maxCoeff()) == get_sign(bezier.minCoeff())){
-//        return false;
-//    }
-//    return true;
-//}
 
 // ────────────────────────────────────────────────────────────────────────────────
 // Same signature, just force aggressive inlining for tight loops
@@ -312,18 +162,6 @@ inline bool bezier4D(
         face6,face7,face8,face9,face10;
 
 #ifndef no_inside
-    // hand-rolled max scan avoids Eigen’s temporary for advanced indexing
-//    constexpr int idxA[20] = {0,1,2,3,5, 6,7,9,10,11,13,14,15,17,18,19,25,26,28,31};
-//    constexpr int idxB[20] = {1,2,3,4,10,11,12,14,15,16,18,19,20,22,23,24,31,32,33,34};
-//
-//    if (!inside) {
-//        double maxA = bezier(idxA[0]), maxB = bezier(idxB[0]);
-//        for (int i = 1; i < 20; ++i) {
-//            maxA = std::max(maxA, bezier(idxA[i]));
-//            maxB = std::max(maxB, bezier(idxB[i]));
-//        }
-    //        inside = (maxA <= 0.0) || (maxB <= 0.0);
-    //    }
     inside = inside || bezier({0,1,2,3,5, 6, 7, 9, 10, 11, 13, 14, 15, 17, 18, 19, 25, 26, 28, 31}).maxCoeff() <= 0;
     inside = inside || bezier({1,2,3,4,10, 11, 12, 14, 15, 16, 18, 19, 20, 22, 23, 24, 31, 32, 33, 34}).maxCoeff() <= 0;
 #endif
@@ -439,6 +277,36 @@ bool outHullClip2D(Eigen::Matrix<double, 2, 35> pts){
     return true;
 }
 
+bool refineFtBezier(
+              const std::array<vertex4d*, 5>& verts,
+              const double threshold,
+              bool& inside,
+              bool& choice,
+              bool& zeroX){
+    const auto& p1 = verts[0]->coord;
+    const auto& p2 = verts[1]->coord;
+    const auto& p3 = verts[2]->coord;
+    const auto& p4 = verts[3]->coord;
+    const auto& p5 = verts[4]->coord;
+    
+    const auto& v1 = verts[0]->valGradList.first;
+    const auto& v2 = verts[1]->valGradList.first;
+    const auto& v3 = verts[2]->valGradList.first;
+    const auto& v4 = verts[3]->valGradList.first;
+    const auto& v5 = verts[4]->valGradList.first;
+    
+    const auto& g1 = verts[0]->valGradList.second;
+    const auto& g2 = verts[1]->valGradList.second;
+    const auto& g3 = verts[2]->valGradList.second;
+    const auto& g4 = verts[3]->valGradList.second;
+    const auto& g5 = verts[4]->valGradList.second;
+    Eigen::RowVector<double, 35> bezierVals;
+    if (!bezier4D(p1, p2, p3, p4, p5, v1, v2, v3, v4, v5, g1, g2, g3, g4, g5, bezierVals, inside)){
+        return false;
+    };
+    return true;
+}
+
 /// See header
 bool refineFt(
               const std::array<vertex4d*, 5>& verts,
@@ -545,35 +413,6 @@ bool bezier3D(
 //              const std::array<vertex4d*, 5>& verts,
               Eigen::RowVector<double, 20>& bezier)
 {
-    // Decompose inputs
-//    const auto& p1 = verts[0]->coord;
-//    const auto& p2 = verts[1]->coord;
-//    const auto& p3 = verts[2]->coord;
-//    const auto& p4 = verts[3]->coord;
-//    
-//    const auto& v1 = verts[0]->valGradList.first;
-//    const auto& v2 = verts[1]->valGradList.first;
-//    const auto& v3 = verts[2]->valGradList.first;
-//    const auto& v4 = verts[3]->valGradList.first;
-//    
-//    const auto& g1 = verts[0]->valGradList.second;
-//    const auto& g2 = verts[1]->valGradList.second;
-//    const auto& g3 = verts[2]->valGradList.second;
-//    const auto& g4 = verts[3]->valGradList.second;
-//    const auto& p1 = pts[0];
-//    const auto& p2 = pts[1];
-//    const auto& p3 = pts[2];
-//    const auto& p4 = pts[3];
-//    
-//    const double& v1 = vals[0];
-//    const double& v2 = vals[1];
-//    const double& v3 = vals[2];
-//    const double& v4 = vals[3];
-//    
-//    const auto& g1 = grads[0];
-//    const auto& g2 = grads[1];
-//    const auto& g3 = grads[2];
-//    const auto& g4 = grads[3];
     // Compute edge values
     std::array<double, 4> v1s = {
         v1 + g1.dot(p2 - p1) / 3,
@@ -652,27 +491,10 @@ bool refine3D(
     const auto& g3 = verts[2].valGradList.second;
     const auto& g4 = verts[3].valGradList.second;
     
-//    const auto& p1 = pts[0];
-//    const auto& p2 = pts[1];
-//    const auto& p3 = pts[2];
-//    const auto& p4 = pts[3];
-//    
-//    const auto& v1 = vals[0];
-//    const auto& v2 = vals[1];
-//    const auto& v3 = vals[2];
-//    const auto& v4 = vals[3];
-//    
-//    const auto& g1 = grads[0];
-//    const auto& g2 = grads[1];
-//    const auto& g3 = grads[2];
-//    const auto& g4 = grads[3];
     Eigen::RowVector<double, 20> bezierVals;
     if (!bezier3D(p1, p2, p3, p4, v1, v2, v3, v4, g1, g2, g3, g4, bezierVals)){
         return false;
     };
-//    if (!bezier3D(verts, bezierVals)){
-//        return false;
-//    };
     Eigen::Vector3d vec1 = p2.head(3) - p1.head(3),
     vec2 = p3.head(3) - p1.head(3),
     vec3 = p4.head(3) - p1.head(3);

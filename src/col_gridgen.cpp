@@ -11,6 +11,7 @@
 
 namespace dr = drjit; // For nanothread
 #define MIN_EDGE_LEN 1e-5
+#define parallel_bezier 0
 
 /// Sample the list of 5-cells based on the base tetrahedra and 4 lists of time samples at its vertices. The extrusion/sampling is based on lowest time stamp, the second lowest time stamp, and the vertex id comparing the four incremental time stamps at each vertex.
 /// @param[in] grid: the base tetrahedra grid in `mtet` structure
@@ -451,9 +452,11 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
             }
             bool ret = refine3D(verts_3d, threshold);
             if (ret){
-                spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
-                std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
-                baseSub = true;
+                if (longest_edge_length * 0.5f > MIN_EDGE_LEN){
+                    spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
+                    std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
+                    baseSub = true;
+                }
             }
         }
         if (!baseSub){
@@ -462,9 +465,11 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
             }
             bool ret = refine3D(verts_3d, threshold);
             if (ret){
-                spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
-                std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
-                baseSub = true;
+                if (longest_edge_length * 0.5f > MIN_EDGE_LEN){
+                    spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
+                    std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
+                    baseSub = true;
+                }
             }
         }
 #if time_profile
@@ -477,14 +482,6 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
 #if time_profile
         Timer extract_first_iso_timer(extract_first_iso, [&](auto timer, auto ms){combine_timer(profileTimer, profileCount, timer, ms);});
 #endif
-        //        std::vector<mtet::Scalar> spatial_verts;
-        //        spatial_verts.reserve(12); //3 (dim) x 4 (vertices)tuple
-        //        for (const auto& corners : vs){
-        //            std::span<const Scalar, 3> data = grid.get_vertex(corners);
-        //            spatial_verts.emplace_back(static_cast<double>(data[0]));
-        //            spatial_verts.emplace_back(static_cast<double>(data[1]));
-        //            spatial_verts.emplace_back(static_cast<double>(data[2]));
-        //        }
         std::array<mtet::Scalar, 12> spatial_verts;           // 3 (xyz) × 4 (verts)
         {
             std::size_t off = 0;
@@ -533,48 +530,6 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
             vert_id.reserve(num_vertices);
             parse_polyhedron(contour, i, vert_id);
             if (simple) assert(vert_id.size() == 4);
-//            bool caps = false;
-//            for (auto& vi : vert_id){
-//                auto poly_time = contour_time[vi];
-//                if (poly_time  == 1 || poly_time == 0){
-//                    caps = true;
-//                }
-//            }
-//            if (caps){
-//                if (simple){
-//#if time_profile
-//                    Timer compute_caps_timer(compute_caps, [&](auto timer, auto ms){combine_timer(profileTimer, profileCount, timer, ms);});
-//#endif
-//                    std::array<Eigen::RowVector4d, 4> pts;
-//                    Eigen::RowVector4d vals;
-//                    std::array<Eigen::RowVector4d, 4> grads;
-//                    for (int vi = 0; vi < vert_id.size(); vi++){
-////                        pts[vi] = contour_pos[vert_id[vi]];
-////                        auto val_grad = func(pts[vi]);
-////                        vals[vi] = val_grad.first;
-////                        grads[vi] = val_grad.second;
-//                        auto& vert = verts_3d[vi];
-//                        vert.coord = contour_pos[vert_id[vi]];
-//                        vert.valGradList = func(vert.coord);
-//                    }
-//                    if (refine3D(/*pts, vals, grads*/verts_3d, threshold)){
-//                        if (longest_edge_length * 0.5f > MIN_EDGE_LEN){
-//                            spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
-//                            std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
-//                            baseSub = true;
-//                        }
-//                    }
-//#if time_profile
-//                    compute_caps_timer.Stop();
-//#endif
-//                }
-//            }
-//            if (terminate) {
-//#if time_profile
-//                second_part_timer.Stop();
-//#endif
-//                return;
-//            };
             // start traversing the active 5-cell.
             for (size_t cell5It = 0; cell5It < cell5Col.size(); cell5It++){
                 if (!zeroX_list[cell5It]){
@@ -611,12 +566,8 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
                             auto& vert = verts_3d[vi];
                             vert.coord = contour_pos[vert_id[vi]];
                             vert.valGradList = func(vert.coord);
-//                            pts[vi] = contour_pos[vert_id[vi]];
-//                            auto val_grad = func(pts[vi]);
-//                            vals[vi] = val_grad.first;
-//                            grads[vi] = val_grad.second;
                         }
-                        if (refine3D(/*pts, vals, grads,*/verts_3d, threshold)){
+                        if (refine3D(verts_3d, threshold)){
                             if (longest_edge_length * 0.5f > MIN_EDGE_LEN){
                                 spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
                                 std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
@@ -813,6 +764,62 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
             }
             newVertCol.vert4dList = vertColList;
             vertexMap[value_of(vid)] = newVertCol;
+#if parallel_bezier
+            ///
+            /// Parallel computing for 4D bezier simplex experiments:
+            ///
+            auto push_cols = [&](llvm_vecsmall::SmallVector<mtet::TetId, 256> tetList){
+                llvm_vecsmall::SmallVector<std::array<vertex4d*, 5>, 4000> simpList;
+                for (const auto& tid : tetList){
+                    const auto& vs = grid.get_tet(tid);
+                    simpCol::cell5_list cell5Col;
+                    sampleCol(vs, vertexMap, cell5Col);
+                    for (size_t cell5It = 0; cell5It < cell5Col.size(); cell5It++){
+                        std::array<vertex4d*, 5> verts_temp{};
+                        const auto& simp = cell5Col[cell5It];
+                        const int* cell5Index = simp.hash.data();
+                        const int  lastInd    = cell5Index[4];
+                        verts_temp[0] = &baseVerts[lastInd]->vert4dList[cell5Index[lastInd]];
+                        size_t ind = 0;
+                        for (size_t i = 0; i < 4; i++){
+                            if (i != lastInd){
+                                ind ++;
+                                verts_temp[ind] = &baseVerts[i]->vert4dList[cell5Index[i]];
+                            }
+                        }
+                        verts_temp[4] = &baseVerts[lastInd]->vert4dList[cell5Index[lastInd] - 1];
+                        simpList.emplace_back(verts_temp);
+                    }
+                }
+                const int N = (int)simpList.size();
+                if (N >= 64*omp_get_max_threads() /*500*/) {
+#pragma omp parallel
+                    {
+                        const int T   = omp_get_num_threads();
+                        const int tid = omp_get_thread_num();
+                        const int blk = (N + T - 1) / T;
+                        const int beg = tid * blk;
+                        const int end = std::min(N, beg + blk);
+                        
+                        for (int i = beg; i < end; ++i) {
+                            bool inside=false, choice=false, zeroX=false;
+                            refineFtBezier(simpList[i], traj_threshold, inside, choice, zeroX);
+                        }
+                    }
+                } else {
+                    // serial fallback
+                    for (int i = 0; i < N; ++i) {
+                        bool inside=false, choice=false, zeroX=false;
+                        refineFtBezier(simpList[i], traj_threshold, inside, choice, zeroX);
+                    }
+                }
+                
+            };
+#endif
+            
+#if parallel_bezier
+            llvm_vecsmall::SmallVector<mtet::TetId, 256> tetList;
+#endif
             grid.foreach_tet_around_edge(eid0, [&](mtet::TetId t0)
                                          {
                 std::span<VertexId, 4> vs = grid.get_tet(t0);
@@ -822,6 +829,9 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
                 insideMap[vs] = false;
 #if time_profile
                 Timer ref_crit_timer(ref_crit, [&](auto timer, auto ms){combine_timer(profileTimer, profileCount, timer, ms);});
+#endif
+#if parallel_bezier
+                tetList.emplace_back(t0);
 #endif
                 push_one_col(t0);
 #if time_profile
@@ -838,11 +848,17 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
 #if time_profile
                 Timer ref_crit_timer(ref_crit, [&](auto timer, auto ms){combine_timer(profileTimer, profileCount, timer, ms);});
 #endif
+#if parallel_bezier
+                tetList.emplace_back(t1);
+#endif
                 push_one_col(t1);
 #if time_profile
                 ref_crit_timer.Stop();
 #endif
             });
+#if parallel_bezier
+            push_cols(tetList);
+#endif
         }
     }
     std::cout << "Temporal splits: " << temporal_splits << " Spatial splits " << spatial_splits << std::endl;

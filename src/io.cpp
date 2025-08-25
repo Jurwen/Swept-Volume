@@ -55,6 +55,7 @@ void convert_4d_grid_mtetcol(mtet::MTetMesh grid,
                              bool cyclic){
     size_t vert_num = grid.get_num_vertices();
     size_t tet_num = grid.get_num_tets();
+    size_t tet4d_num = 0, vert4d_num = 0;
     verts.reserve(vert_num * 3);
     simps.reserve(tet_num * 4);
     time.reserve(vert_num);
@@ -72,6 +73,7 @@ void convert_4d_grid_mtetcol(mtet::MTetMesh grid,
         time.emplace_back(std::vector<double>{});
         values[vertIt].reserve(vert4dList.size());
         time[vertIt].reserve(vert4dList.size());
+        vert4d_num += vert4dList.size();
         for (size_t i = 0; i < vert4dList.size(); i ++){
             Eigen::RowVector4d coord = vert4dList[i].coord;
             values[vertIt].emplace_back(vert4dList[i].valGradList.second[3]);
@@ -88,5 +90,11 @@ void convert_4d_grid_mtetcol(mtet::MTetMesh grid,
         simps.emplace_back(static_cast<uint32_t>(ind4DMap[value_of(vs[1])]));
         simps.emplace_back(static_cast<uint32_t>(ind4DMap[value_of(vs[2])]));
         simps.emplace_back(static_cast<uint32_t>(ind4DMap[value_of(vs[3])]));
+        tet4d_num += vertexMap[value_of(vs[0])].vert4dList.size();
+        tet4d_num += vertexMap[value_of(vs[1])].vert4dList.size();
+        tet4d_num += vertexMap[value_of(vs[2])].vert4dList.size();
+        tet4d_num += vertexMap[value_of(vs[3])].vert4dList.size();
+        tet4d_num -= 4;
     });
+    std::cout << "4D Vertex Number: " << vert4d_num << " 4D Tetrahedra Number: " << tet4d_num << std::endl;
 }
