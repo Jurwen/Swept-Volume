@@ -15,6 +15,30 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 set(FAST_ARRANGEMENT_ENABLE_PARALLEL OFF CACHE BOOL "" FORCE)
 set(GEO_ENABLE_THREADS               OFF CACHE BOOL "" FORCE)
 
+find_package(OpenMP QUIET COMPONENTS CXX)
+
+# OpenMP
+if (OpenMP_CXX_FOUND)
+  message(STATUS "OpenMP found: using OpenMP::OpenMP_CXX")
+  add_library(OpenMP::OpenMP_CXX ALIAS OpenMP::OpenMP_CXX)
+else()
+  message(WARNING "OpenMP not found by CMake; wiring Homebrew libomp manually")
+
+  # Homebrew paths on Apple Silicon:
+  set(LIBOMP_PREFIX "/opt/homebrew/opt/libomp")
+
+  add_library(OpenMP::OpenMP_CXX INTERFACE IMPORTED)
+  # AppleClang needs -Xpreprocessor -fopenmp
+  target_compile_options(OpenMP::OpenMP_CXX INTERFACE -Xpreprocessor -fopenmp)
+  target_include_directories(OpenMP::OpenMP_CXX INTERFACE "${LIBOMP_PREFIX}/include")
+  target_link_libraries(OpenMP::OpenMP_CXX INTERFACE "${LIBOMP_PREFIX}/lib/libomp.dylib")
+  # Ensure the runtime is found at run time
+  if (APPLE)
+    target_link_options(OpenMP::OpenMP_CXX INTERFACE
+      "-Wl,-rpath,${LIBOMP_PREFIX}/lib")
+  endif()
+endif()
+
 include(cli11)
 include(Eigen3)
 include(nlohmann-json)
@@ -47,6 +71,7 @@ target_link_libraries(adaptive_column_grid
     unordered_dense::unordered_dense
     igl::core
     spdlog::spdlog
+    OpenMP::OpenMP_CXX
     )
 
 file(GLOB SWEEP_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/app/include/*.h)

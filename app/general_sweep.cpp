@@ -176,6 +176,16 @@ int main(int argc, const char *argv[])
             implicit_sweep = loopDloop_with_offset_v3;
         } else if (args.function_file == "VIPSS_blend") {
             implicit_sweep = VIPSS_blend;
+        } else if (args.function_file == "VIPSS_blend3") {
+            implicit_sweep = VIPSS_blend3;
+        } else if (args.function_file == "VIPSS_blend_S") {
+            implicit_sweep = VIPSS_blend_S;
+        } else if (args.function_file == "wheel_I") {
+            implicit_sweep = wheel_I;
+        } else if (args.function_file == "wheel_I_shrink") {
+            implicit_sweep = wheel_I_shrink;
+        } else if (args.function_file == "mesh_I") {
+            implicit_sweep = mesh_I;
         } else {
             throw std::runtime_error("ERROR: file format not supported");
         }
