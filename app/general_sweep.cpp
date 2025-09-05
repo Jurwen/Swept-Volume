@@ -186,6 +186,12 @@ int main(int argc, const char *argv[])
             implicit_sweep = wheel_I_shrink;
         } else if (args.function_file == "mesh_I") {
             implicit_sweep = mesh_I;
+        } else if (args.function_file == "tangle_cube_roll") {
+            implicit_sweep = tangle_cube_roll;
+        } else if (args.function_file == "ball_genus_roll") {
+            implicit_sweep = ball_genus_roll;
+        } else if (args.function_file == "tangle_chair_S") {
+            implicit_sweep = tangle_chair_S;
         } else {
             throw std::runtime_error("ERROR: file format not supported");
         }

@@ -537,6 +537,161 @@ std::pair<Scalar, Eigen::RowVector4d> ellipsoidLine(Eigen::RowVector4d inputs) {
     return {value, gradient};
 }
 
+stf::GenericFunction<3> tangleCube() {
+    constexpr Scalar scale = 20.0;
+
+    auto value_fn = [=](std::array<Scalar,3> pos) -> Scalar {
+        const Scalar x = pos[0] * scale;
+        const Scalar y = pos[1] * scale;
+        const Scalar z = pos[2] * scale;
+        return (x*x*x*x - 5*x*x) + (y*y*y*y - 5*y*y) + (z*z*z*z - 5*z*z) + 10.0;
+    };
+
+    auto grad_fn = [=](std::array<Scalar,3> pos) -> std::array<Scalar,3> {
+        const Scalar x = pos[0] * scale;
+        const Scalar y = pos[1] * scale;
+        const Scalar z = pos[2] * scale;
+        const Scalar gx = (4*x*x*x - 10*x) * scale; // chain rule
+        const Scalar gy = (4*y*y*y - 10*y) * scale;
+        const Scalar gz = (4*z*z*z - 10*z) * scale;
+        return {gx, gy, gz};
+    };
+    return stf::GenericFunction<3>(value_fn, grad_fn);
+}
+
+stf::GenericFunction<3> chair() {
+    constexpr Scalar scale = 20.0;
+    constexpr Scalar k = 5.0;
+    constexpr Scalar a = 0.95;
+    constexpr Scalar b = 0.8;
+    
+    auto value_fn = [=](std::array<Scalar,3> p) -> Scalar {
+        const Scalar x = p[0] * scale, y = p[1] * scale, z = p[2] * scale;
+        
+        const Scalar r = x*x + y*y + z*z - a*k*k;              // sphere-ish core
+        const Scalar P = (z - k)*(z - k) - 2.0*x*x;            // “x” factor
+        const Scalar Q = (z + k)*(z + k) - 2.0*y*y;            // “y” factor
+        
+        return r*r - b * P * Q;
+    };
+    
+    auto grad_fn = [=](std::array<Scalar,3> p) -> std::array<Scalar,3> {
+        const Scalar x = p[0] * scale, y = p[1] * scale, z = p[2] * scale;
+        
+        const Scalar r = x*x + y*y + z*z - a*k*k;
+        const Scalar P = (z - k)*(z - k) - 2.0*x*x;
+        const Scalar Q = (z + k)*(z + k) - 2.0*y*y;
+        
+        // derivatives
+        // dr/dx = 2x, dr/dy = 2y, dr/dz = 2z
+        // dP/dx = -4x, dP/dz = 2(z-k)
+        // dQ/dy = -4y, dQ/dz = 2(z+k)
+        
+        const Scalar dfdx = (4.0*r*x + 4.0*b*x*Q) * scale;                                  // 2*r*(2x) - b*((-4x)*Q + P*0)
+        const Scalar dfdy = (4.0*r*y + 4.0*b*y*P) * scale;                                  // 2*r*(2y) - b*(0*Q + P*(-4y))
+        const Scalar dfdz = (4.0*r*z - 2.0*b * ( (z - k)*Q + (z + k)*P )) * scale;          // 2*r*(2z) - b*(2(z-k)Q + 2(z+k)P)
+        
+        return {dfdx, dfdy, dfdz};
+    };
+    
+    return stf::GenericFunction<3>(value_fn, grad_fn);
+}
+
+stf::GenericFunction<3> make_dual_capsule_soft_union(
+    const Eigen::MatrixXd& V,
+    const Eigen::MatrixXi& F,
+    Scalar radius = 0.02,
+    Scalar smooth = 0.005)
+{
+    const int nf = F.rows();
+    std::vector<std::array<Scalar,3>> centroids(nf);
+    for (int i = 0; i < nf; ++i) {
+        Eigen::RowVector3d c =
+            (V.row(F(i,0)) + V.row(F(i,1)) + V.row(F(i,2))) / 3.0;
+        centroids[i] = {Scalar(c[0]), Scalar(c[1]), Scalar(c[2])};
+    }
+
+    struct Edge { int a, b; bool operator==(const Edge& o) const { return a==o.a && b==o.b; } };
+    struct EdgeHash { size_t operator()(const Edge& e) const {
+        return (static_cast<size_t>(e.a) << 32) ^ static_cast<size_t>(e.b);
+    }};
+    std::unordered_map<Edge, std::vector<int>, EdgeHash> edge2faces;
+
+    for (int f = 0; f < nf; ++f) {
+        for (int e = 0; e < 3; ++e) {
+            int v0 = F(f, e);
+            int v1 = F(f, (e+1)%3);
+            if (v0 > v1) std::swap(v0, v1);
+            edge2faces[{v0, v1}].push_back(f);
+        }
+    }
+
+    std::vector<std::pair<int,int>> adj;
+    adj.reserve(edge2faces.size());
+    for (auto& kv : edge2faces) {
+        auto& faces = kv.second;
+        for (size_t i = 0; i < faces.size(); ++i)
+            for (size_t j = i+1; j < faces.size(); ++j)
+                adj.emplace_back(faces[i], faces[j]);
+    }
+
+    struct BinaryTree {
+        std::vector<std::pair<std::unique_ptr<stf::ImplicitFunction<3>>, int>> keep_alive;
+        stf::ImplicitFunction<3>* root = nullptr;
+    };
+    auto binaryTree = std::make_shared<BinaryTree>();
+
+    std::vector<stf::ImplicitFunction<3>*> layer;
+    layer.reserve(adj.size());
+
+    for (const auto& pr : adj) {
+        const auto& A = centroids[pr.first];
+        const auto& B = centroids[pr.second];
+        auto cap = std::make_unique<stf::ImplicitCapsule<3>>(radius, A, B);
+        auto* raw = cap.get();
+        binaryTree->keep_alive.emplace_back(std::pair<std::unique_ptr<stf::ImplicitFunction<3>>, int>{std::move(cap), 1});
+        layer.push_back(raw);
+    }
+
+    if (layer.empty()) {
+        auto value = [](std::array<Scalar,3>) { return Scalar(1e9); };
+        auto grad  = [](std::array<Scalar,3>) { return std::array<Scalar,3>{0,0,0}; };
+        return stf::GenericFunction<3>(value, grad);
+    }
+
+    int layerLevel = 2;
+    while (layer.size() > 1) {
+        std::vector<stf::ImplicitFunction<3>*> next;
+        next.reserve((layer.size()+1)/2);
+        for (size_t i = 0; i + 1 < layer.size(); i += 2) {
+            auto u = std::make_unique<stf::ImplicitUnion<3>>(*layer[i], *layer[i+1], smooth);
+            auto* raw = u.get();
+            binaryTree->keep_alive.emplace_back(std::pair<std::unique_ptr<stf::ImplicitFunction<3>>, int>{std::move(u), layerLevel});
+            next.push_back(raw);
+        }
+        if (layer.size() % 2 == 1) next.push_back(layer.back()); // carry odd one up
+        layer.swap(next);
+        layerLevel++;
+    }
+//    binaryTree->root = binaryTree->keep_alive.back().first.get();
+    binaryTree->root = layer.front();
+    
+    auto value_func = [binaryTree](std::array<Scalar,3> p) {
+//        std::cout << "union start: " << std::endl;
+//        for (const auto& func : binaryTree->keep_alive){
+//            std::cout << func.first->value(p) << ": " << func.second << std::endl;
+//        }
+//        std::cout << "union end----- " << std::endl;
+        return binaryTree->root->value(p);
+    };
+    auto gradient_func = [](std::array<Scalar,3>) {
+        // just use FD method to get gradient. This is just a placeholder.
+        return std::array<Scalar,3>{0,0,0};
+    };
+
+    return stf::GenericFunction<3>(value_func, gradient_func);
+}
+
 std::pair<Scalar, Eigen::RowVector4d> bezier(Eigen::RowVector4d inputs) {
     static stf::ImplicitTorus base_shape(0.07, 0.03, {0.0, 0.0, 0.0});
     // stf::ImplicitSphere base_shape(0.07, {0.0, 0.0, 0.0});
@@ -666,7 +821,8 @@ std::pair<Scalar, Eigen::RowVector4d> brush_stroke_blending(Eigen::RowVector4d i
 
     // clang-format off
     static std::vector<std::array<stf::Scalar, 3>> samples{
-        {0.3090, 0.6504, 0.32},
+//        {0.3090, 0.6504, 0.32},
+        {0.30888, 0.6551, 0.336},
         {0.3074, 0.6294, 0.34},
         {0.3000, 0.5009, 0.36},
         {0.3934, 0.4126, 0.38},
@@ -679,12 +835,26 @@ std::pair<Scalar, Eigen::RowVector4d> brush_stroke_blending(Eigen::RowVector4d i
         {0.3973, 0.5340, 0.52},
         {0.4045, 0.6679, 0.54},
         {0.4223, 0.6732, 0.56},
-        {0.4402, 0.6784, 0.58},
-        {0.4594, 0.5506, 0.6},
-        {0.5693, 0.4865, 0.62},
-        {0.6152, 0.4597, 0.64},
-        {0.6628, 0.4525, 0.66},
-        {0.7000, 0.4514, 0.68},
+//        {0.4402, 0.6784, 0.58},
+//        {0.4594, 0.5506, 0.6},
+////        {0.482075, 0.566525, 0.6},
+//        {0.5693, 0.4865, 0.62},
+//        {0.6152, 0.4597, 0.64},
+//        {0.6628, 0.4525, 0.66},
+//        {0.7000, 0.4514, 0.68},
+
+        
+        {0.4402, 0.6784, 0.58}, {0.4328, 0.5499, \
+        0.6}, {0.49325, 0.48985, 0.62}, \
+        {0.5537, 0.4298, 0.64}, {0.6965, \
+        0.4388, 0.66},
+//        {0.7, 0.4514, 0.68}
+//        {0.695, 0.4178, 0.68}
+        {0.738816, 0.416766, 0.673281}
+        //straight rung
+//        {0.4223, 0.6732, 0.56}, {0.468583, 0.636233, 0.58}, {0.514867, \
+//        0.599267, 0.6}, {0.56115, 0.5623, 0.62}, {0.607433, 0.525333, 0.64}, \
+//        {0.653717, 0.488367, 0.66}, {0.7, 0.4514, 0.68}
     };
     // clang-format on
     static stf::PolyBezier<3> stroke(samples, false);
@@ -698,10 +868,18 @@ std::pair<Scalar, Eigen::RowVector4d> brush_stroke_blending(Eigen::RowVector4d i
         sweep2,
         [](stf::Scalar t) { return (std::sin(t * 3 * 2 * M_PI - M_PI / 2) + 1) / 2; },
         [](stf::Scalar t) { return 3 * M_PI * std::cos(t * 3 * 2 * M_PI - M_PI / 2); });
+//                                             [](stf::Scalar t) {
+//                                                 auto u = (1 - std::cos(6*t*M_PI))/2;
+//                                                 return (10 * std::pow(u, 3) - 15 * std::pow(u, 4) + 6 * std::pow(u, 5));
+//                                             },
+//                                             [](stf::Scalar t) {
+//                                                 auto du = 3 * M_PI * std::sin(t * 3 * 2 * M_PI);
+//                                                 return (30 * std::pow(du, 2) - 60 * std::pow(du, 3) + 30 * std::pow(du, 4));
+//                                             });
     auto& sweep_function = blend;
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
@@ -1371,6 +1549,75 @@ std::pair<Scalar, Eigen::RowVector4d> wheel_I_shrink(Eigen::RowVector4d inputs) 
     static stf::SweepFunction<3> wheel_function(wheel, transform);
     static stf::SweepFunction<3> shrink_sweep(wheel_shrink, transform);
     static stf::InterpolateFunction<3> sweep_function(wheel_function, shrink_sweep);
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> tangle_cube_roll(Eigen::RowVector4d inputs) {
+    static stf::GenericFunction<3> base_shape = chair();
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, 90);
+    static stf::Polyline<3> polyline({{0.5, 0.5, 0.25}, {0.5, 0.5, 0.75}});
+    static stf::Translation<3> translation({0.0, 0.0, -0.5});
+    static stf::Compose<3> transform(polyline, rotation);
+    static stf::SweepFunction<3> tangle_sweep(base_shape, transform);
+    static stf::OffsetFunction<3> offset_function(
+                                                  tangle_sweep,
+        [](stf::Scalar t) { return 2; },
+        [](stf::Scalar t) { return 0; });
+    auto& sweep_function = offset_function;
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> tangle_chair_S(Eigen::RowVector4d inputs) {
+    static stf::GenericFunction<3> base_shape = tangleCube();
+    static stf::GenericFunction<3> chair_shape = chair();
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 1.0}, 90);
+    static stf::Polyline<3> polyline({{0.5, 0.5, 0.25}, {0.5, 0.5, 0.75}});
+    static stf::PolyBezier<3> bezier(
+        {{0.25, 0.5, 0.25}, {1.5, 0.5, 0.4}, {-0.5, 0.5, 0.6}, {0.75, 0.5, 0.75}});
+    static stf::Translation<3> translation({0.0, 0.0, -0.5});
+    static stf::Scale<3> scale({1.5, 1.5, 1.5}, {0.0, 0.0, 0.0});
+    static stf::Compose<3> scale_rotate(rotation, scale);
+    static stf::Compose<3> transform(bezier, rotation);
+    static stf::Compose<3> transform2(bezier, scale_rotate);
+    static stf::SweepFunction<3> tangle_sweep(base_shape, transform);
+    static stf::SweepFunction<3> chair_sweep(chair_shape, transform2);
+    static stf::OffsetFunction<3> offset_tangle(
+                                                  tangle_sweep,
+        [](stf::Scalar t) { return 2; },
+        [](stf::Scalar t) { return 0; });
+    static stf::OffsetFunction<3> offset_chair(
+                                                  chair_sweep,
+        [](stf::Scalar t) { return 2; },
+        [](stf::Scalar t) { return 0; });
+//    static stf::UnionFunction<3> sweep_function(offset_tangle, offset_chair, 0.01);
+    static stf::InterpolateFunction<3> sweep_function(offset_tangle, offset_chair);
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient =  sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> ball_genus_roll(Eigen::RowVector4d inputs) {
+    const Scalar half_arclength = M_PI / 4 * 0.52 / 0.5;
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi F;
+    std::filesystem::path data_dir(DATA_DIR);
+    std::string filename = (data_dir / "meshes" / "sphere_0.5.obj").string();
+    igl::read_triangle_mesh(filename,V,F);
+    static stf::GenericFunction<3> base_shape = make_dual_capsule_soft_union(V, F);
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, 180);
+    static stf::Polyline<3> polyline({{0.5, 0.5, 0.5 - half_arclength}, {0.5, 0.5, 0.5 + half_arclength}});
+    static stf::Translation<3> translation({0.0, 0.0, -0.5});
+    static stf::Compose<3> transform(polyline, rotation);
+    static stf::SweepFunction<3> ball_roll(base_shape, transform);
+    static stf::OffsetFunction<3> offset_function(
+                                                  ball_roll,
+        [](stf::Scalar t) { return -0.04 * t; },
+        [](stf::Scalar t) { return -0.04 ; });
+    auto& sweep_function = offset_function;
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
