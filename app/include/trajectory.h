@@ -1600,13 +1600,18 @@ std::pair<Scalar, Eigen::RowVector4d> tangle_chair_S(Eigen::RowVector4d inputs) 
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 
-std::pair<Scalar, Eigen::RowVector4d> ball_genus_roll(Eigen::RowVector4d inputs) {
-    const Scalar half_arclength = M_PI / 4 * 0.52 / 0.5;
+std::tuple<Eigen::MatrixXd, Eigen::MatrixXi> igl_load_mesh(const std::string& filename) {
     Eigen::MatrixXd V;
     Eigen::MatrixXi F;
+    igl::read_triangle_mesh(filename,V,F);
+    return {V, F};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> ball_genus_roll(Eigen::RowVector4d inputs) {
+    const Scalar half_arclength = M_PI / 4 * 0.52 / 0.5;
     std::filesystem::path data_dir(DATA_DIR);
     std::string filename = (data_dir / "meshes" / "sphere_0.5.obj").string();
-    igl::read_triangle_mesh(filename,V,F);
+    static auto [V, F] = igl_load_mesh(filename);
     static stf::GenericFunction<3> base_shape = make_dual_capsule_soft_union(V, F);
     static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, 180);
     static stf::Polyline<3> polyline({{0.5, 0.5, 0.5 - half_arclength}, {0.5, 0.5, 0.5 + half_arclength}});
