@@ -114,8 +114,8 @@ int main(int argc, const char *argv[])
                 gradient.template head<3>() << xyz_grad;
                 point_velocity = (-Rt.inverse()*VRt*Rt.inverse()*(P.transpose() - xt.transpose()) - Rt.inverse()*vt.transpose()).transpose();
                 gradient(3) =  (-s) * cp.dot(point_velocity);
-                std::cout << s * cp.dot(point_velocity) << std::endl;
-                std::cout << "value: " << value << std::endl;
+                //std::cout << s * cp.dot(point_velocity) << std::endl;
+                //std::cout << "value: " << value << std::endl;
                 return {value, gradient};
             };
         } else if (args.function_file == "elbow") {
@@ -192,6 +192,8 @@ int main(int argc, const char *argv[])
             implicit_sweep = ball_genus_roll;
         } else if (args.function_file == "tangle_chair_S") {
             implicit_sweep = tangle_chair_S;
+        } else if (args.function_file == "torus_translation") {
+            implicit_sweep = torus_translation;
         } else {
             throw std::runtime_error("ERROR: file format not supported");
         }

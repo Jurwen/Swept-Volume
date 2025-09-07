@@ -1627,4 +1627,14 @@ std::pair<Scalar, Eigen::RowVector4d> ball_genus_roll(Eigen::RowVector4d inputs)
     auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
+
+std::pair<Scalar, Eigen::RowVector4d> torus_translation(Eigen::RowVector4d inputs) {
+    static stf::ImplicitTorus base_shape(0.2, 0.04, {0.25, 0.25, 0.25});
+    static stf::Translation<3> translation({-0.5, -0.5, -0.3});
+    static stf::SweepFunction<3> sweep_function(base_shape, translation);
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
 #endif /* trajectory_h */
