@@ -12,6 +12,7 @@
 namespace dr = drjit; // For nanothread
 #define MIN_EDGE_LEN 1e-5
 #define parallel_bezier 0
+#define insideness_check 1
 
 /// Sample the list of 5-cells based on the base tetrahedra and 4 lists of time samples at its vertices. The extrusion/sampling is based on lowest time stamp, the second lowest time stamp, and the vertex id comparing the four incremental time stamps at each vertex.
 /// @param[in] grid: the base tetrahedra grid in `mtet` structure
@@ -402,6 +403,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
             bool ret = refineFt(verts, traj_threshold, inside, choice, zeroX, profileTimer, profileCount);
             zeroX_list[cell5It] = zeroX;
             if (zeroX) no_intersect = false;
+#if insideness_check
             if (inside) {
                 insideMap[vs] = true;
 #if time_profile
@@ -409,6 +411,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
 #endif
                 return;
             }
+#endif
             if (ret) {
                 subList[cell5It] = true;
                 timeLenList[cell5It] = verts[0]->time - verts[4]->time;
