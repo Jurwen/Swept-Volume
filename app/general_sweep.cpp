@@ -10,6 +10,7 @@
 #include <mtetcol/simplicial_column.h>
 #include <mtetcol/io.h>
 #include <igl/write_triangle_mesh.h>
+#include <igl/remove_unreferenced.h>
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include "init_grid.h"
@@ -356,10 +357,12 @@ int main(int argc, const char *argv[])
     }
     igl::write_triangle_mesh(output_path + "/mesh" + ".obj", vertices, faces);
     for (size_t i = 0; i < out_faces.size(); i++){
-        igl::write_triangle_mesh(output_path + "/" + std::to_string(i) + ".obj", out_vertices, out_faces[i]);
-    }
-    for (size_t i = 0; i < out_faces.size(); i++){
-        igl::write_triangle_mesh(output_path + "/" + std::to_string(i) + ".obj", out_vertices, out_faces[i]);
+        Eigen::MatrixXd V_clean;
+        Eigen::MatrixXi F_clean;
+        Eigen::VectorXi I;
+        Eigen::VectorXi J;
+        igl::remove_unreferenced(out_vertices, out_faces[i], V_clean, F_clean, I, J);
+        igl::write_triangle_mesh(output_path + "/" + std::to_string(i) + ".obj", V_clean, F_clean);
     }
 #if batch_stats
     std::string stats_file = "stats.json";

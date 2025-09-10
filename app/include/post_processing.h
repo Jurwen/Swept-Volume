@@ -12,6 +12,7 @@
 #include <limits>    // for std::numeric_limits
 #include <arrangement/Arrangement.h>
 const double threshold = 1e-5;
+const int faceThreshold = 200;
 
 struct PairHasher {
     std::size_t operator()(const std::pair<int,int>& p) const noexcept {
@@ -38,12 +39,13 @@ constexpr std::pair<int,int> INVALID_PATCH = { -1, -1 };
 std::pair<std::vector<bool>, std::vector<int>>
 computeValidPatch(int cellNum,
                   std::vector<double>& volInfo,
+                  std::vector<int>& faceCountInfo,
                   const arrangement::MatrixIr& cellData)
 {
     std::vector<std::vector<bool>> adj(cellNum, std::vector<bool>(cellNum, false));
     std::vector<bool> valid(cellNum, false), merged(cellNum, false);
     for(int i = 0; i < cellNum; ++i) {
-        if (volInfo[i] > threshold) valid[i] = true;
+        if (volInfo[i] > threshold && faceCountInfo[i] > faceThreshold) valid[i] = true;
     }
     // build adjacency from cellData
     for( size_t e = 0; e < cellData.rows(); e++) {
@@ -146,6 +148,7 @@ void compute_sweep_volume(const arrangement::MatrixFr& vertices, const arrangeme
     int num_facets = arrangement_faces.rows();
     std::vector<int> wind_list(num_cells);
     std::vector<double> volInfo(num_cells);
+    std::vector<int> faceCountInfo(num_cells);
     std::vector<size_t> cellIt;
     for (size_t i = 0; i < num_cells; ++i) {
         // collect all facets incident on cell i
@@ -172,6 +175,7 @@ void compute_sweep_volume(const arrangement::MatrixFr& vertices, const arrangeme
         }
         meshVol = std::abs(meshVol) / 6.0;
         volInfo[i] = meshVol;
+        faceCountInfo[i] = active_facets_count;
         active_facets.resize(active_facets_count);
         if (active_facets.empty()) {
             continue;
@@ -190,7 +194,7 @@ void compute_sweep_volume(const arrangement::MatrixFr& vertices, const arrangeme
     int valid_num = 0;
     std::cout << "valid 0-winding cell iter: ";
     for(int i = 0; i < num_cells; ++i) {
-        if (volInfo[i] > threshold) {
+        if (volInfo[i] > threshold && faceCountInfo[i] > faceThreshold) {
             valid[i] = true;
             valid_num++;
         }
@@ -203,7 +207,7 @@ void compute_sweep_volume(const arrangement::MatrixFr& vertices, const arrangeme
     std::cout << "number of valid cells: " << valid_num << std::endl;
     
     // Pruning of error cells
-    const auto& prunedInfo2 = computeValidPatch(num_cells, volInfo, cell_data);
+    const auto& prunedInfo2 = computeValidPatch(num_cells, volInfo, faceCountInfo, cell_data);
     std::vector<bool> valid_patchInd = prunedInfo2.first;
     std::vector<int> cell_merge_map = prunedInfo2.second;
 //    std::vector<bool> valid_patchInd (cell_data.size(), true);
