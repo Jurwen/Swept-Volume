@@ -684,11 +684,12 @@ stf::GenericFunction<3> make_dual_capsule_soft_union(
 //        std::cout << "union end----- " << std::endl;
         return binaryTree->root->value(p);
     };
-    auto gradient_func = [](std::array<Scalar,3>) {
-        // just use FD method to get gradient. This is just a placeholder.
-        return std::array<Scalar,3>{0,0,0};
+    
+    std::function<std::array<Scalar,3>(const std::array<Scalar,3>&)> gradient_func =
+    [binaryTree](const std::array<Scalar,3>& p) {
+        return binaryTree->root->gradient(p);
     };
-
+    
     return stf::GenericFunction<3>(value_func, gradient_func);
 }
 
@@ -1618,7 +1619,7 @@ std::pair<Scalar, Eigen::RowVector4d> ball_genus_roll(Eigen::RowVector4d inputs)
         [](stf::Scalar t) { return -0.068 ; });
     auto& sweep_function = offset_function;
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 #endif /* trajectory_h */
