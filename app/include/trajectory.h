@@ -538,7 +538,7 @@ std::pair<Scalar, Eigen::RowVector4d> ellipsoidLine(Eigen::RowVector4d inputs) {
 }
 
 stf::GenericFunction<3> tangleCube() {
-    constexpr Scalar scale = 20.0;
+    constexpr Scalar scale = 30.0;
 
     auto value_fn = [=](std::array<Scalar,3> pos) -> Scalar {
         const Scalar x = pos[0] * scale;
@@ -560,7 +560,8 @@ stf::GenericFunction<3> tangleCube() {
 }
 
 stf::GenericFunction<3> chair() {
-    constexpr Scalar scale = 20.0;
+    static double magnitude_scale = 0.05;
+    constexpr Scalar scale = 50.0;
     constexpr Scalar k = 5.0;
     constexpr Scalar a = 0.95;
     constexpr Scalar b = 0.8;
@@ -572,7 +573,7 @@ stf::GenericFunction<3> chair() {
         const Scalar P = (z - k)*(z - k) - 2.0*x*x;            // “x” factor
         const Scalar Q = (z + k)*(z + k) - 2.0*y*y;            // “y” factor
         
-        return r*r - b * P * Q;
+        return (r*r - b * P * Q) * magnitude_scale;
     };
     
     auto grad_fn = [=](std::array<Scalar,3> p) -> std::array<Scalar,3> {
@@ -591,16 +592,15 @@ stf::GenericFunction<3> chair() {
         const Scalar dfdy = (4.0*r*y + 4.0*b*y*P) * scale;                                  // 2*r*(2y) - b*(0*Q + P*(-4y))
         const Scalar dfdz = (4.0*r*z - 2.0*b * ( (z - k)*Q + (z + k)*P )) * scale;          // 2*r*(2z) - b*(2(z-k)Q + 2(z+k)P)
         
-        return {dfdx, dfdy, dfdz};
+        return {dfdx *  magnitude_scale, dfdy * magnitude_scale, dfdz * magnitude_scale};
     };
-    
     return stf::GenericFunction<3>(value_fn, grad_fn);
 }
 
 stf::GenericFunction<3> make_dual_capsule_soft_union(
     const Eigen::MatrixXd& V,
     const Eigen::MatrixXi& F,
-    Scalar radius = 0.02,
+    Scalar radius = 0.005,
     Scalar smooth = 0.02)
 {
     const int nf = F.rows();
@@ -1541,7 +1541,7 @@ std::pair<Scalar, Eigen::RowVector4d> wheel_I_shrink(Eigen::RowVector4d inputs) 
 
 std::pair<Scalar, Eigen::RowVector4d> tangle_cube_roll(Eigen::RowVector4d inputs) {
     static stf::GenericFunction<3> base_shape = chair();
-    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, 90);
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 1.0}, 90);
     static stf::Polyline<3> polyline({{0.5, 0.5, 0.25}, {0.5, 0.5, 0.75}});
     static stf::Translation<3> translation({0.0, 0.0, -0.5});
     static stf::Compose<3> transform(polyline, rotation);
@@ -1559,17 +1559,26 @@ std::pair<Scalar, Eigen::RowVector4d> tangle_cube_roll(Eigen::RowVector4d inputs
 std::pair<Scalar, Eigen::RowVector4d> tangle_chair_S(Eigen::RowVector4d inputs) {
     static stf::GenericFunction<3> base_shape = tangleCube();
     static stf::GenericFunction<3> chair_shape = chair();
-    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 1.0}, 90);
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, 90);
     static stf::Polyline<3> polyline({{0.5, 0.5, 0.25}, {0.5, 0.5, 0.75}});
     static stf::PolyBezier<3> bezier(
         {{0.25, 0.5, 0.25}, {1.5, 0.5, 0.4}, {-0.5, 0.5, 0.6}, {0.75, 0.5, 0.75}});
     static stf::Translation<3> translation({0.0, 0.0, -0.5});
-    static stf::Scale<3> scale({1.5, 1.5, 1.5}, {0.0, 0.0, 0.0});
+    static std::vector<std::array<stf::Scalar, 3>> samples{{0.309, 0.6504, 0.68}, {0.3074, 0.6294, 0.66}, {0.3, 0.5009,
+        0.64}, {0.3934, 0.4126, 0.62}, {0.4897, 0.3216, 0.6}, {0.6325,
+        0.3306, 0.58}, {0.636, 0.3432, 0.56}, {0.6389, 0.3537,
+        0.54}, {0.5428, 0.3618, 0.52}, {0.4755, 0.4415, 0.5}, {0.3973,
+        0.534, 0.48}, {0.4045, 0.6679, 0.46}, {0.4223, 0.6732,
+        0.44}, {0.4402, 0.6784, 0.42}, {0.4594, 0.5506, 0.4}, {0.5373,
+        0.50515, 0.38}, {0.6152, 0.4597, 0.36}, {0.6628, 0.4525,
+            0.34}, {0.7, 0.4514, 0.32}};
+    static stf::PolyBezier<3> stroke(samples, false);
+    static stf::Scale<3> scale({2, 2, 2}, {0.0, 0.0, 0.0});
     static stf::Compose<3> scale_rotate(rotation, scale);
     static stf::Compose<3> transform(bezier, rotation);
     static stf::Compose<3> transform2(bezier, scale_rotate);
-    static stf::SweepFunction<3> tangle_sweep(base_shape, transform);
-    static stf::SweepFunction<3> chair_sweep(chair_shape, transform2);
+    static stf::SweepFunction<3> tangle_sweep(base_shape, stroke);
+    static stf::SweepFunction<3> chair_sweep(chair_shape, stroke);
     static stf::OffsetFunction<3> offset_tangle(
                                                   tangle_sweep,
         [](stf::Scalar t) { return 2; },
@@ -1579,7 +1588,7 @@ std::pair<Scalar, Eigen::RowVector4d> tangle_chair_S(Eigen::RowVector4d inputs) 
         [](stf::Scalar t) { return 2; },
         [](stf::Scalar t) { return 0; });
 //    static stf::UnionFunction<3> sweep_function(offset_tangle, offset_chair, 0.01);
-    static stf::InterpolateFunction<3> sweep_function(offset_tangle, offset_chair);
+    static stf::InterpolateFunction<3> sweep_function(tangle_sweep, chair_sweep);
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient =  sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
@@ -1593,20 +1602,20 @@ std::tuple<Eigen::MatrixXd, Eigen::MatrixXi> igl_load_mesh(const std::string& fi
 }
 
 std::pair<Scalar, Eigen::RowVector4d> ball_genus_roll(Eigen::RowVector4d inputs) {
-    const Scalar half_arclength = M_PI / 4 * 0.52 / 0.5 * 3;
+    const Scalar half_arclength = M_PI / 4 * 0.52 / 0.5 * 2;
     std::filesystem::path data_dir(DATA_DIR);
     std::string filename = (data_dir / "meshes" / "sphere_0.5.obj").string();
     static auto [V, F] = igl_load_mesh(filename);
     static stf::GenericFunction<3> base_shape = make_dual_capsule_soft_union(V, F);
-    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, 180 * 3);
+    static stf::Rotation<3> rotation({0.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, 180 * 2);
     static stf::Polyline<3> polyline({{0.5, 0.5, 0.5 - half_arclength}, {0.5, 0.5, 0.5 + half_arclength}});
     static stf::Translation<3> translation({0.0, 0.0, -0.5});
     static stf::Compose<3> transform(polyline, rotation);
     static stf::SweepFunction<3> ball_roll(base_shape, transform);
     static stf::OffsetFunction<3> offset_function(
                                                   ball_roll,
-        [](stf::Scalar t) { return -0.08 * t; },
-        [](stf::Scalar t) { return -0.08 ; });
+        [](stf::Scalar t) { return -0.068 * t; },
+        [](stf::Scalar t) { return -0.068 ; });
     auto& sweep_function = offset_function;
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
