@@ -325,6 +325,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
     
     int splits = 0, temporal_splits = 0, spatial_splits = 0;
     std::array<vertexCol*, 4> baseVerts;
+    std::array<Eigen::RowVector4d, 4> baseCoord;
     mtet::EdgeId longest_edge;
     mtet::Scalar longest_edge_length = 0;
     std::vector<int> timeLenList(MAX_CELL_INTERVALS);
@@ -353,6 +354,20 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
 
         for (size_t i = 0; i < 4; i++){
             baseVerts[i] = &vertexMap[value_of(vs[i])];
+            baseCoord[i] = baseVerts[i]->vert4dList[0].coord;
+        }
+        {
+            const Eigen::Vector3d A = baseCoord[0].head<3>().transpose();
+            const Eigen::Vector3d B = baseCoord[1].head<3>().transpose();
+            const Eigen::Vector3d C = baseCoord[2].head<3>().transpose();
+            const Eigen::Vector3d D = baseCoord[3].head<3>().transpose();
+            
+            // Build edge matrix [B-A, C-A, D-A] and take |det|/6
+            Eigen::Matrix3d M;
+            M.col(0) = B - A;
+            M.col(1) = C - A;
+            M.col(2) = D - A;
+            if (std::abs(M.determinant()) / 6.0 < 1e-12) insideMap[vs] = true;
         }
         /// Compute longest spatial edge
         longest_edge_length = 0;
@@ -435,7 +450,7 @@ bool gridRefine(mtet::MTetMesh &grid, vertExtrude &vertexMap, insidenessMap &ins
                     }
                 }else{
                     if (!baseSub){
-                        if (longest_edge_length > MIN_EDGE_LEN){
+                        if (longest_edge_length * 0.5f > MIN_EDGE_LEN){
                             spaceQ.emplace_back(longest_edge_length, tid, longest_edge);
                             std::push_heap(spaceQ.begin(), spaceQ.end(), compSpace);
                             baseSub = true;
