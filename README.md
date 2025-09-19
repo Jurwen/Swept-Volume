@@ -1,6 +1,8 @@
-# Swept-Volume
+# Lifted Surfacing of Generalized Sweep Volumes
 
 This code implements the ACM SIGGRAPH ASIA 2025 paper: Lifted Surfacing of Generalized Sweep Volumes
+
+<img width="1799" height="2041" alt="ball-rolling" src="https://github.com/user-attachments/assets/4751b437-091b-4626-976e-3c0a74132838" />
 
 Given any sweep represented as a smooth time-varying implicit function satisfying a genericity assumption, this algorithm produces a watertight and intersection-free surface that faithfully captures the geometric and topological features.
 
@@ -91,8 +93,8 @@ This example command demonstrates how to generate a swept volume using the `brus
 
 ### Expected Output:
 When this command runs successfully, you'll find in the `output/brush_stroke_example/` directory:
-- **`0.obj`, `1.obj`, ...** : Individual mesh components representing different parts of the swept volume with zero winding number
+- **`0.obj`, `1.obj`, ...** : Individual mesh components representing different parts of the swept envelope with 0 winding number
 - **`features.json`** : Feature lines and points that capture the topological structure of the swept volume
-- **`contour.msh`** : The intermediate contour mesh (if enabled)
+- **`contour.msh`** : The intermediate envelope mesh before pruning, containing per-vertex info of `time` and `is_regular` (if enabled)
 
 This example showcases how different threshold values balance between computational efficiency and geometric fidelity, making it suitable for both quick prototyping and high-quality final results.
