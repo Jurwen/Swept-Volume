@@ -46,7 +46,7 @@ The input of this program is any generalized sweep that is represented by a smoo
 ### Options
 
 - `-h, --help` : Show the help message and exit the program.
-- `-f, --function <file>` : Optional. Specify an implicit function file or predefined function name. Can be:
+- `-f, --function <file>` : Specify an implicit function file or predefined function name. Can be:
   - A predefined function name (e.g., `fertility_v4`, `kitten_dog`, `letter_L_blend`, `ball_genus_roll`, `tangle_chair_S`, `star_S`, etc.)
   - See `trajectory.h` for all available predefined functions
 - `-t, --threshold <value>` : Set the threshold value for grid generation (default: 0.0005). Lower values produce coarser grids. This is a DOUBLE value that controls the precision level.
@@ -60,7 +60,7 @@ The input of this program is any generalized sweep that is represented by a smoo
 The following is an example of how to use the `general_sweep` tool with common options:
 
 ```bash
-./general_sweep data/test/grid_1.json output/brush_stroke_example -t 0.0005 --tt 0.005 -f brush_stroke_blending
+./general_sweep ../data/test/grid_1.json ../output/brush_stroke_example -t 0.0005 --tt 0.005 -f brush_stroke_blending
 ```
 
 ### Parameter Breakdown:
@@ -68,9 +68,9 @@ The following is an example of how to use the `general_sweep` tool with common o
 This example command demonstrates how to generate a swept volume using the `brush_stroke_blending` function. Let's examine each parameter:
 
 #### Required Positional Arguments:
-- **`data/test/grid_1.json`** : The initial grid file that defines the starting tetrahedral mesh structure. This JSON file contains the initial spatial discretization that will be refined during the swept volume computation.
+- **`../data/test/grid_1.json`** : The initial grid file that defines the starting tetrahedral mesh structure. This JSON file contains the initial spatial discretization that will be refined during the swept volume computation.
 
-- **`output/brush_stroke_example`** : The output directory where all generated files will be saved. The tool will create this directory if it doesn't exist.
+- **`../output/brush_stroke_example`** : The output directory where all generated files will be saved. The tool will create this directory if it doesn't exist.
 
 #### Optional Parameters:
 - **`-t 0.0005`** : Sets the **grid refinement threshold** to 0.0005. This parameter controls how finely the algorithm subdivides the initial grid based on the implicit function's gradient magnitude. A smaller value (like 0.0005) means:
@@ -92,7 +92,7 @@ This example command demonstrates how to generate a swept volume using the `brus
   - Is one of the predefined functions available in `trajectory.h`
 
 ### Expected Output:
-When this command runs successfully, you'll find in the `output/brush_stroke_example/` directory:
+When this command runs successfully, you'll find in the `../output/brush_stroke_example/` directory:
 - **`0.obj`, `1.obj`, ...** : Individual mesh components representing different parts of the swept envelope with 0 winding number
 - **`features.json`** : Feature lines and points that capture the topological structure of the swept volume
 - **`contour.msh`** : The intermediate envelope mesh before pruning, containing per-vertex info of `time` and `is_regular` (if enabled)
