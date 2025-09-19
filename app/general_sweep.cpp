@@ -20,9 +20,9 @@
 #include "post_processing.h"
 #include "timer.h"
 
-#define SAVE_CONTOUR 0
+#define SAVE_CONTOUR 1
 #define batch_stats 0
-#define batch_time 1
+#define batch_time 0
 
 int main(int argc, const char *argv[])
 {
@@ -235,7 +235,7 @@ int main(int argc, const char *argv[])
     auto stopperTime = std::chrono::high_resolution_clock::now();
     auto start = std::chrono::time_point_cast<std::chrono::microseconds>(starterTime).time_since_epoch().count();
     auto grid_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
-    std::cout << "Grid-building time: " << (grid_end - start) * 0.000001 << std::endl;
+    std::cout << "Grid-building time: " << (grid_end - start) * 1e-6 << " seconds" << std::endl;
     std::function<std::span<double>(size_t)> time_func = [&](size_t index)->std::span<double>{
         return time[index];
     };
@@ -250,7 +250,7 @@ int main(int argc, const char *argv[])
     auto contour = columns.extract_contour(iso_value, cyclic);
     stopperTime = std::chrono::high_resolution_clock::now();
     auto surface_1_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
-    std::cout << "Surfacing time: " << (surface_1_end - grid_end) * 0.000001 << std::endl;
+    std::cout << "Surfacing time: " << (surface_1_end - grid_end) * 1e-6 << " seconds (First marching)" << std::endl;
     size_t num_contour_vertices = contour.get_num_vertices();
     std::vector<double> function_values(num_contour_vertices);
     std::vector<double> gradient_values(num_contour_vertices * dim);
@@ -285,7 +285,7 @@ int main(int argc, const char *argv[])
     }
     stopperTime = std::chrono::high_resolution_clock::now();
     auto surface_2_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
-    std::cout << "Surfacing time: " << (surface_2_end - surface_1_end) * 0.000001 << std::endl;
+    std::cout << "Surfacing time: " << (surface_2_end - surface_1_end) * 1e-6 << " seconds (Second marching)" << std::endl;
     
 #if SAVE_CONTOUR
     mtetcol::save_contour(output_path + "/temporal_grid.obj", contour);
@@ -348,13 +348,15 @@ int main(int argc, const char *argv[])
     compute_sweep_volume(vertices, faces, out_vertices, out_faces, output_path);
     stopperTime = std::chrono::high_resolution_clock::now();
     auto arrangement_end = std::chrono::time_point_cast<std::chrono::microseconds>(stopperTime).time_since_epoch().count();
-    std::cout << "Arrangement time: " << (arrangement_end - surface_2_end) * 0.000001 << std::endl;
+    std::cout << "Arrangement time: " << (arrangement_end - surface_2_end) * 1e-6 << " seconds" << std::endl;
+#if time_profile
     for (size_t i = 0; i < timer_amount; i++){
         std::cout
         << time_label[i] << " "
         << profileTimer[i] << " "
         << profileCount[i] << std::endl;
     }
+#endif
     igl::write_triangle_mesh(output_path + "/mesh" + ".obj", vertices, faces);
     for (size_t i = 0; i < out_faces.size(); i++){
         Eigen::MatrixXd V_clean;

@@ -29,7 +29,7 @@ To use the `general_sweep` tool, you must provide an initial grid file and outpu
 ```
 
 
-## 4D Implicit Function Framework: 
+### 4D Implicit Function Framework: 
 
 The input of this program is any generalized sweep that is represented by a smooth 4D implicit function. Currently, we provide a series of pre-defined functions which include all paper examples. You can specify an implicit function file or use one of the predefined function names. Unfortunately, we do not provide a GUI or a user-friendly tool for defining such functions at this moment. If you want to specify your own sweep, please refer to this [repository](https://github.com/qnzhou/space-time-functions) and specific use cases in `trajectory.h` for details.
 
@@ -52,3 +52,47 @@ The input of this program is any generalized sweep that is represented by a smoo
 - `-m, --max-splits <number>` : Set the maximum number of splits for grid generation to avoid infinite subdivision (default: unlimited). This is a sanity parameter to prevent degeneracies.
 - `--without-snapping` : Disable vertex snapping in the iso-surfacing step.
 - `--without-optimal-triangulation` : Disable optimal triangulation in the iso-surfacing triangulation step. 
+
+## Example:
+
+The following is an example of how to use the `general_sweep` tool with common options:
+
+```bash
+./general_sweep data/test/grid_1.json output/brush_stroke_example -t 0.0005 --tt 0.005 -f brush_stroke_blending
+```
+
+### Parameter Breakdown:
+
+This example command demonstrates how to generate a swept volume using the `brush_stroke_blending` function. Let's examine each parameter:
+
+#### Required Positional Arguments:
+- **`data/test/grid_1.json`** : The initial grid file that defines the starting tetrahedral mesh structure. This JSON file contains the initial spatial discretization that will be refined during the swept volume computation.
+
+- **`output/brush_stroke_example`** : The output directory where all generated files will be saved. The tool will create this directory if it doesn't exist.
+
+#### Optional Parameters:
+- **`-t 0.0005`** : Sets the **grid refinement threshold** to 0.0005. This parameter controls how finely the algorithm subdivides the initial grid based on the implicit function's gradient magnitude. A smaller value (like 0.0005) means:
+  - Higher precision in capturing surface details
+  - More computational time and memory usage
+  - Better preservation of sharp features and fine geometric details
+  - The algorithm will subdivide grid cells more aggressively where the function changes rapidly
+
+- **`--tt 0.005`** : Sets the **trajectory threshold** to 0.005. This parameter controls the precision of trajectory processing, which is crucial for:
+  - Temporal discretization of the 4D sweep
+  - Determining how finely to sample the time dimension of the sweep
+  - Capturing temporal variations in the implicit function
+  - A smaller value provides better temporal resolution but increases computation time
+
+- **`-f brush_stroke_blending`** : Specifies the **implicit function** to use. The `brush_stroke_blending` function represents a particular sweep pattern that:
+  - Creates a brush stroke-like swept volume with blending effects
+  - Demonstrates complex topological changes during the sweep
+  - Shows how multiple geometric elements can be blended together in the swept volume, as the base brush morphs between one sphere and two spheres.
+  - Is one of the predefined functions available in `trajectory.h`
+
+### Expected Output:
+When this command runs successfully, you'll find in the `output/brush_stroke_example/` directory:
+- **`0.obj`, `1.obj`, ...** : Individual mesh components representing different parts of the swept volume with zero winding number
+- **`features.json`** : Feature lines and points that capture the topological structure of the swept volume
+- **`contour.msh`** : The intermediate contour mesh (if enabled)
+
+This example showcases how different threshold values balance between computational efficiency and geometric fidelity, making it suitable for both quick prototyping and high-quality final results.
