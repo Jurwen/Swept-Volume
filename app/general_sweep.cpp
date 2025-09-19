@@ -32,7 +32,7 @@ int main(int argc, const char *argv[])
         std::string output_path;
         std::string function_file = "";
         double threshold = 0.0005;
-        double traj_threshold = 0.01;
+        double traj_threshold = 0.005;
         int max_splits = std::numeric_limits<int>::max();
         int rot = 0;
         bool without_snapping = false;
