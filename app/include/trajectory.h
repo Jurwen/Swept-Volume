@@ -1619,7 +1619,7 @@ std::pair<Scalar, Eigen::RowVector4d> ball_genus_roll(Eigen::RowVector4d inputs)
         [](stf::Scalar t) { return -0.068 ; });
     auto& sweep_function = offset_function;
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
-    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.finite_difference_gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
 }
 #endif /* trajectory_h */
