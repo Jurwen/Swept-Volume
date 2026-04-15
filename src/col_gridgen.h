@@ -44,6 +44,7 @@ bool gridRefine(
     std::array<size_t, timer_amount>& profileCount,
     size_t initial_time_samples,
     const double min_tet_radius_ratio,
-    const double min_tet_edge_length);
+    const double min_tet_edge_length,
+    bool cyclic);
 
 #endif /* col_gridgen_h */

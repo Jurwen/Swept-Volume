@@ -322,6 +322,8 @@ int main(int argc, const char* argv[])
             implicit_sweep = close_loop;
         } else if (args.function_file == "close_loop_2") {
             implicit_sweep = close_loop_2;
+        } else if (args.function_file == "torus_cycle") {
+            implicit_sweep = torus_cycle;
         } else if (args.function_file == "tet_roll") {
             implicit_sweep = tet_roll;
         } else {

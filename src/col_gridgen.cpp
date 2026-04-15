@@ -327,7 +327,8 @@ bool gridRefine(
     std::array<size_t, timer_amount>& profileCount,
     size_t initial_time_samples,
     double min_tet_radius_ratio,
-    double min_tet_edge_length)
+    double min_tet_edge_length,
+    bool cyclic)
 {
     init5CGrid(initial_time_samples, grid, func, MAX_TIME, vertexMap);
     double min_tet_ratio = 1.0;
@@ -555,12 +556,18 @@ bool gridRefine(
             baseVerts[1]->getValueList(),
             baseVerts[2]->getValueList(),
             baseVerts[3]->getValueList()};
+        if (cyclic){
+            values[0].back() = values[0].front();
+            values[1].back() = values[1].front();
+            values[2].back() = values[2].front();
+            values[3].back() = values[3].front();
+        }
         std::function<std::span<double>(size_t)> values_func =
             [&](size_t index) -> std::span<double> { return values[index]; };
         column.set_vertices(spatial_verts);
         column.set_simplices(one_column_simp);
         column.set_time_samples(time_func, values_func);
-        auto contour = column.extract_contour(0.0, false);
+        auto contour = column.extract_contour(0.0, cyclic);
         auto num_polyhedra = contour.get_num_polyhedra();
         auto num_vertices = contour.get_num_vertices();
 

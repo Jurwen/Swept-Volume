@@ -1402,14 +1402,11 @@ std::pair<Scalar, Eigen::RowVector4d> fertility_v6(Eigen::RowVector4d inputs)
 
 std::pair<Scalar, Eigen::RowVector4d> bunny_blend(Eigen::RowVector4d inputs)
 {
-    std::filesystem::path data_dir(DATA_DIR);
-    std::string filename = (data_dir / "meshes" / "bunny.obj").string();
-
-    static MeshSDF sdf(filename, {0.25, 0.5, 0.5}, 0.2, -0.02);
+    static stf::ImplicitSphere base_shape(0.2, {0.25, 0.5, 0.5});
     static stf::Rotation<3> rotation_Z({0.5, 0.5, 0.5}, {0.0, 0.0, 1.0}, 360);
     static stf::Rotation<3> rotation_X({0.25, 0.5, 0.5}, {1.0, 0.0, 0.0}, 360);
     static stf::Compose<3> transform(rotation_Z, rotation_X);
-    static stf::SweepFunction<3> sweep_function(sdf, transform);
+    static stf::SweepFunction<3> sweep_function(base_shape, transform);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
@@ -1419,10 +1416,11 @@ std::pair<Scalar, Eigen::RowVector4d> bunny_blend(Eigen::RowVector4d inputs)
 // Smaller sphere in a close loop
 std::pair<Scalar, Eigen::RowVector4d> close_loop(Eigen::RowVector4d inputs)
 {
-    stf::ImplicitSphere base_shape(0.2, {0.2, 0.2, 0.5});
-
-    static stf::Rotation<3> rotation_Z({0.51, 0.51, 0.51}, {0.0, 0.0, 1.0}, 360);
-    static stf::SweepFunction<3> sweep_function(base_shape, rotation_Z);
+    static stf::ImplicitSphere base_shape(0.2, {0.25, 0.5, 0.5});
+    static stf::Rotation<3> rotation_Z({0.5, 0.5, 0.5}, {0.0, 0.0, 1.0}, 360);
+    static stf::Rotation<3> rotation_X({0.25, 0.5, 0.5}, {1.0, 0.0, 0.0}, 360);
+    static stf::Compose<3> transform(rotation_Z, rotation_X);
+    static stf::SweepFunction<3> sweep_function(base_shape, transform);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
@@ -1432,10 +1430,11 @@ std::pair<Scalar, Eigen::RowVector4d> close_loop(Eigen::RowVector4d inputs)
 // Bigger sphere in a close loop
 std::pair<Scalar, Eigen::RowVector4d> close_loop_2(Eigen::RowVector4d inputs)
 {
-    stf::ImplicitSphere base_shape(0.3, {0.4, 0.4, 0.5});
-
-    static stf::Rotation<3> rotation_Z({0.51, 0.51, 0.51}, {0.0, 0.0, 1.0}, 360);
-    static stf::SweepFunction<3> sweep_function(base_shape, rotation_Z);
+    static stf::ImplicitSphere base_shape(0.35, {0.25, 0.5, 0.5});
+    static stf::Rotation<3> rotation_Z({0.5, 0.5, 0.5}, {0.0, 0.0, 1.0}, 360);
+    static stf::Rotation<3> rotation_X({0.25, 0.5, 0.5}, {1.0, 0.0, 0.0}, 360);
+    static stf::Compose<3> transform(rotation_Z, rotation_X);
+    static stf::SweepFunction<3> sweep_function(base_shape, transform);
 
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
@@ -1843,6 +1842,22 @@ std::pair<Scalar, Eigen::RowVector4d> nested_balls(Eigen::RowVector4d inputs)
         });
     static stf::Translation<3> translation({-0.5, 0.0, 0.0});
     static stf::SweepFunction<3> sweep_function(base_shape, translation);
+    Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
+    return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};
+}
+
+std::pair<Scalar, Eigen::RowVector4d> torus_cycle(Eigen::RowVector4d inputs)
+{
+    // Torus standing upright (normal along z), translating in a circle in the XZ plane.
+    // rotationY orbits the torus center around (0.5,0.5,0.5) but also rotates the shape.
+    // counterY cancels the self-rotation by counter-rotating around the torus's own center.
+    static stf::ImplicitTorus base_shape(0.2, 0.05, {0.6, 0.5, 0.5});
+    static stf::Rotation<3> rotationY({0.4, 0.5, 0.5}, {0, 1, 0}, 360);
+    static stf::Rotation<3> counterY({0.6, 0.5, 0.5}, {0, 1, 0}, -360);
+    static stf::Compose<3> transform(rotationY, counterY);
+    static stf::SweepFunction<3> sweep_function(base_shape, transform);
+
     Scalar value = sweep_function.value({inputs(0), inputs(1), inputs(2)}, inputs(3));
     auto gradient = sweep_function.gradient({inputs(0), inputs(1), inputs(2)}, inputs(3));
     return {value, Eigen::RowVector4d(gradient[0], gradient[1], gradient[2], gradient[3])};

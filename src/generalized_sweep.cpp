@@ -55,7 +55,8 @@ refine_grid(const SpaceTimeFunction& f, mtet::MTetMesh& grid, const SweepOptions
             profileCount,
             options.initial_time_samples,
             options.min_tet_radius_ratio,
-            options.min_tet_edge_length)) {
+            options.min_tet_edge_length,
+            options.cyclic)) {
         throw std::runtime_error("ERROR: grid generation failed");
     };
     spdlog::set_level(spdlog::level::info);
@@ -337,7 +338,8 @@ SweepResult generalized_sweep(const SpaceTimeFunction& f, GridSpec grid_spec, Sw
     result.arrangement = compute_envelope_arrangement(
         result.envelope,
         options.volume_threshold,
-        options.face_count_threshold);
+        options.face_count_threshold,
+        options.cyclic);
     auto arrangement_end = std::chrono::high_resolution_clock::now();
     logger().info(
         "Arrangement computation time: {} seconds",
