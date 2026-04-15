@@ -76,7 +76,22 @@ lagrange::SurfaceMesh<Scalar, Index> isocontour_to_mesh(mtetcol::Contour<4>& iso
     for (size_t i = 0; i < num_cycles; i++) {
         regular_values[i] = isocontour.is_cycle_regular(i) ? 1 : 0;
     }
-
+    
+    // Add polygon (triangle) orientation label from isocontour cycle labels
+    envelope.template create_attribute<int8_t>(
+        "orientation",
+        lagrange::AttributeElement::Facet,
+        lagrange::AttributeUsage::Scalar,
+        1);
+    auto orientation_values = attribute_vector_ref<int8_t>(envelope, "orientation");
+    const auto& cycle_labels = isocontour.get_cycle_labels();
+    if (cycle_labels.empty()) {
+        orientation_values.setZero();
+    } else {
+        for (size_t i = 0; i < num_cycles; i++) {
+            orientation_values[i] = isocontour.get_cycle_label(i);
+        }
+    }
     return envelope;
 }
 
@@ -84,7 +99,8 @@ template <typename Scalar, typename Index>
 lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
     const lagrange::SurfaceMesh<Scalar, Index>& envelope,
     Scalar vol_threshold,
-    size_t face_count_threshold)
+    size_t face_count_threshold,
+    bool cyclic)
 {
     using Point = Eigen::Matrix<Scalar, 3, 1>;
 
@@ -92,6 +108,7 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
     auto V = vertex_view(envelope).template cast<double>();
     auto F = facet_view(envelope).template cast<int>();
     auto T = attribute_vector_view<Scalar>(envelope, "time");
+    auto O = attribute_vector_view<int8_t>(envelope, "orientation");
     arrangement::VectorI face_labels = Eigen::VectorXi::LinSpaced(F.rows(), 0, F.rows() - 1);
     auto engine = arrangement::Arrangement::create_mesh_arrangement(V, F, face_labels);
     engine->run();
@@ -134,6 +151,7 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
     std::vector<Scalar> cell_volumes(num_cells, 0);
     std::vector<size_t> cell_face_counts(num_cells, 0);
     std::vector<int32_t> cell_winding_numbers(num_cells, invalid_winding_number);
+    std::vector<int> cell_label_sums(num_cells, 0);
     for (size_t fid = 0; fid < num_facets; fid++) {
         Index c0 = static_cast<Index>(cell_data(patches[fid], 0)); // Cell on the positive side
         Index c1 = static_cast<Index>(cell_data(patches[fid], 1)); // Cell on the negative side
@@ -170,6 +188,11 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
         cell_volumes[c1] += vol / 6;
         cell_face_counts[c0]++;
         cell_face_counts[c1]++;
+
+        // Accumulate orientation labels per cell
+        int8_t ori_label = O[parent_facets(fid)];
+        cell_label_sums[c0] += ori_label;
+        cell_label_sums[c1] += ori_label;
     }
     auto cell_is_small = [&](Index cid) {
         return (
@@ -216,11 +239,23 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
         c1 = get_parent(get_parent, c1); // Find the representative parent cell
         int w0 = cell_winding_numbers[c0]; // Winding number on the positive side
         int w1 = cell_winding_numbers[c1]; // Winding number on the negative side
-
-        if (w0 == 0 && w1 != 0) {
+        int ls0 = cell_label_sums[c0]; // Label sum on the positive side
+        int ls1 = cell_label_sums[c1]; // Label sum on the negative side
+        
+        // A cell is "outside" if its winding number is 0 AND its label sum >= 0.
+        // A cell is "inside" (negation) if its winding number != 0 OR label sum < 0.
+        bool c0_outside, c1_outside;
+        if(cyclic){
+            c0_outside = (w0 == 0 && ls0 >= 0);
+            c1_outside = (w1 == 0 && ls1 >= 0);
+        }else{
+            c0_outside = (w0 == 0);
+            c1_outside = (w1 == 0);
+        }
+        if (c0_outside && !c1_outside) {
             is_valid[fid] = 1;
             num_valid_facets++;
-        } else if (w1 == 0 && w0 != 0) {
+        } else if (c1_outside && !c0_outside) {
             is_valid[fid] = -1;
             num_valid_facets++;
         }
