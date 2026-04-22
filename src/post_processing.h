@@ -346,11 +346,49 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
         return false;
     };
 
+    // Geometry helpers used by both the main inheritance loop (ambiguity
+    // tiebreaker) and the SWEEP_VERIFY_EDGE_LABELS block. `V` is the
+    // envelope vertex matrix cast to double; `out_vertices` is the
+    // arrangement vertex matrix from the engine.
+    const auto& V_env_dbl = V;
+    const auto& V_arr_dbl = out_vertices;
+    Eigen::Matrix<double, 3, 1> bb_min_geo = V_env_dbl.colwise().minCoeff().transpose();
+    Eigen::Matrix<double, 3, 1> bb_max_geo = V_env_dbl.colwise().maxCoeff().transpose();
+    double bbox_diag_geo = (bb_max_geo - bb_min_geo).norm();
+    double geom_tol = 1e-6 * bbox_diag_geo;
+
+    auto dist_point_to_segment =
+        [](const Eigen::Matrix<double, 3, 1>& P,
+           const Eigen::Matrix<double, 3, 1>& A,
+           const Eigen::Matrix<double, 3, 1>& B) -> double {
+        Eigen::Matrix<double, 3, 1> AB = B - A;
+        double ab2 = AB.squaredNorm();
+        if (ab2 < 1e-30) return (P - A).norm();
+        double t = (P - A).dot(AB) / ab2;
+        t = std::max(0.0, std::min(1.0, t));
+        return (P - (A + t * AB)).norm();
+    };
+
+    // Max of the two endpoint-to-segment distances from arrangement edge
+    // (u0, u1) to input envelope edge `e_in`. Used to rank candidate input
+    // edges when the topological test is ambiguous.
+    auto max_endpoint_dist = [&](Index u0, Index u1, Index e_in) -> double {
+        auto [iv0, iv1] = envelope.get_edge_vertices(e_in);
+        Eigen::Matrix<double, 3, 1> A = V_env_dbl.row(iv0).transpose();
+        Eigen::Matrix<double, 3, 1> B = V_env_dbl.row(iv1).transpose();
+        Eigen::Matrix<double, 3, 1> P0 = V_arr_dbl.row(u0).transpose();
+        Eigen::Matrix<double, 3, 1> P1 = V_arr_dbl.row(u1).transpose();
+        double d0 = dist_point_to_segment(P0, A, B);
+        double d1 = dist_point_to_segment(P1, A, B);
+        return std::max(d0, d1);
+    };
+
     // Debug counters (scoped to this loop).
     size_t count_valid = 0;
     size_t count_fu0 = 0;
     size_t count_fu1 = 0;
     size_t count_fu_ge2 = 0;
+    size_t count_recovered_by_geom = 0;
 
     for (Index eid = 0; eid < num_edges; eid++) {
         parents.clear();
@@ -368,31 +406,50 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
             if (occ == 1) f_u.push_back(parents[i]);
         }
 
+        auto [u0, u1] = sweep_arrangement.get_edge_vertices(eid);
         Index label = invalid_id;
+        bool recovered_by_geom = false;
 
         if (f_u.size() == 1) {
             count_fu1++;
             Index p = f_u[0];
             Index cb = envelope.get_facet_corner_begin(p);
-            size_t boundary_count = 0;
-            Index boundary_edge = invalid_id;
+            // Collect all boundary input edges of p.
+            lagrange::SmallVector<Index, 3> boundary_edges;
             for (Index k = 0; k < 3; k++) {
                 Index v0 = envelope.get_corner_vertex(cb + k);
                 Index v1 = envelope.get_corner_vertex(cb + (k + 1) % 3);
                 Index e_in = envelope.find_edge_from_vertices(v0, v1);
                 if (e_in == invalid_id) continue;
                 if (envelope.count_num_corners_around_edge(e_in) == 1) {
-                    boundary_count++;
-                    boundary_edge = e_in;
+                    boundary_edges.push_back(e_in);
                 }
             }
-            if (boundary_count == 1) label = boundary_edge;
+            if (boundary_edges.size() == 1) {
+                label = boundary_edges[0];
+            } else if (boundary_edges.size() >= 2) {
+                // Geometric tiebreaker: pick the boundary edge whose
+                // max-endpoint-distance is smallest, if within tolerance.
+                double best_dist = std::numeric_limits<double>::infinity();
+                Index best_edge = invalid_id;
+                for (Index e_in : boundary_edges) {
+                    double d = max_endpoint_dist(u0, u1, e_in);
+                    if (d < best_dist) {
+                        best_dist = d;
+                        best_edge = e_in;
+                    }
+                }
+                if (best_dist <= geom_tol) {
+                    label = best_edge;
+                    recovered_by_geom = true;
+                }
+            }
         } else if (f_u.size() >= 2) {
             count_fu_ge2++;
             Index p0 = f_u[0];
             Index cb = envelope.get_facet_corner_begin(p0);
-            size_t match_count = 0;
-            Index matched = invalid_id;
+            // Collect input edges of p0 that are shared by all of F_U.
+            lagrange::SmallVector<Index, 3> shared_edges;
             for (Index k = 0; k < 3; k++) {
                 Index v0 = envelope.get_corner_vertex(cb + k);
                 Index v1 = envelope.get_corner_vertex(cb + (k + 1) % 3);
@@ -405,15 +462,54 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
                         break;
                     }
                 }
-                if (shared_by_all) {
-                    match_count++;
-                    matched = e_in;
+                if (shared_by_all) shared_edges.push_back(e_in);
+            }
+            if (shared_edges.size() == 1) {
+                label = shared_edges[0];
+            } else if (shared_edges.size() >= 2) {
+                // Geometric tiebreaker among the shared edges.
+                double best_dist = std::numeric_limits<double>::infinity();
+                Index best_edge = invalid_id;
+                for (Index e_in : shared_edges) {
+                    double d = max_endpoint_dist(u0, u1, e_in);
+                    if (d < best_dist) {
+                        best_dist = d;
+                        best_edge = e_in;
+                    }
+                }
+                if (best_dist <= geom_tol) {
+                    label = best_edge;
+                    recovered_by_geom = true;
+                }
+            } else {
+                // shared_edges.empty() - no topological match. Fall back to
+                // the geometric nearest input edge over all of F_U's edges.
+                double best_dist = std::numeric_limits<double>::infinity();
+                Index best_edge = invalid_id;
+                for (Index p : f_u) {
+                    Index cb_p = envelope.get_facet_corner_begin(p);
+                    for (Index k = 0; k < 3; k++) {
+                        Index v0 = envelope.get_corner_vertex(cb_p + k);
+                        Index v1 = envelope.get_corner_vertex(cb_p + (k + 1) % 3);
+                        Index e_in = envelope.find_edge_from_vertices(v0, v1);
+                        if (e_in == invalid_id) continue;
+                        double d = max_endpoint_dist(u0, u1, e_in);
+                        if (d < best_dist) {
+                            best_dist = d;
+                            best_edge = e_in;
+                        }
+                    }
+                }
+                if (best_dist <= geom_tol) {
+                    label = best_edge;
+                    recovered_by_geom = true;
                 }
             }
-            if (match_count == 1) label = matched;
         } else {
             count_fu0++;
         }
+
+        if (recovered_by_geom) count_recovered_by_geom++;
 
         envelope_edge_id[eid] = label;
         if (label != invalid_id) count_valid++;
@@ -421,12 +517,13 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
 
     sweep::logger().info(
         "Edge-label inheritance: {} / {} edges got a valid envelope edge id "
-        "(|F_U|=0: {}, |F_U|=1: {}, |F_U|>=2: {})",
+        "(|F_U|=0: {}, |F_U|=1: {}, |F_U|>=2: {}; recovered by geom tiebreaker: {})",
         count_valid,
         num_edges,
         count_fu0,
         count_fu1,
-        count_fu_ge2);
+        count_fu_ge2,
+        count_recovered_by_geom);
 
 #ifdef SWEEP_VERIFY_EDGE_LABELS
     // Geometric verification of edge-label inheritance.
@@ -438,40 +535,15 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
     //       nonetheless lies geometrically on some edge of some parent
     //       facet. This is the "missed inheritance" probe.
     //
-    // Sub-case counters for the ambiguous cases let us inspect why the
-    // topological test declined to assign a label.
+    // The main inheritance pass now includes a geometric tiebreaker, so the
+    // ambiguous sub-case counters below count *residual* ambiguity that the
+    // tiebreaker could not resolve (either because no candidate edge was
+    // close enough, or because the F_U set had no candidate input edge to
+    // rank at all).
     {
-        const auto& V_env = V;                    // envelope vertex positions (double)
-        const auto& V_arr = out_vertices;         // arrangement vertex positions (double)
-
-        // Tolerance: relative to envelope bounding-box diagonal.
-        Eigen::Matrix<double, 3, 1> bb_min = V_env.colwise().minCoeff().transpose();
-        Eigen::Matrix<double, 3, 1> bb_max = V_env.colwise().maxCoeff().transpose();
-        double bbox_diag = (bb_max - bb_min).norm();
-        double tol = 1e-6 * bbox_diag;
-
-        // Return distance from point P to the line segment [A, B].
-        auto dist_point_to_segment =
-            [](const Eigen::Matrix<double, 3, 1>& P,
-               const Eigen::Matrix<double, 3, 1>& A,
-               const Eigen::Matrix<double, 3, 1>& B) -> double {
-            Eigen::Matrix<double, 3, 1> AB = B - A;
-            double ab2 = AB.squaredNorm();
-            if (ab2 < 1e-30) return (P - A).norm();
-            double t = (P - A).dot(AB) / ab2;
-            t = std::max(0.0, std::min(1.0, t));
-            return (P - (A + t * AB)).norm();
-        };
-
-        // Is arrangement edge `eid` (with endpoints u0, u1) on-input-edge `e_in`?
-        auto arr_edge_on_input_edge = [&](Index u0, Index u1, Index e_in) -> bool {
-            auto [iv0, iv1] = envelope.get_edge_vertices(e_in);
-            Eigen::Matrix<double, 3, 1> A = V_env.row(iv0).transpose();
-            Eigen::Matrix<double, 3, 1> B = V_env.row(iv1).transpose();
-            Eigen::Matrix<double, 3, 1> P0 = V_arr.row(u0).transpose();
-            Eigen::Matrix<double, 3, 1> P1 = V_arr.row(u1).transpose();
-            return dist_point_to_segment(P0, A, B) < tol &&
-                   dist_point_to_segment(P1, A, B) < tol;
+        // Geometry helpers are hoisted above the main loop; reuse them here.
+        auto arr_edge_on_input_edge = [&](Index uu0, Index uu1, Index e_in) -> bool {
+            return max_endpoint_dist(uu0, uu1, e_in) < geom_tol;
         };
 
         size_t pass_valid = 0;
@@ -563,7 +635,7 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
 
                 fout << "g envelope\n";
                 for (Index v : env_verts) {
-                    auto pos = V_env.row(v);
+                    auto pos = V_env_dbl.row(v);
                     fout << "v " << pos(0) << " " << pos(1) << " " << pos(2)
                          << "\n";
                     env_obj_idx[v] = obj_counter++;
@@ -579,7 +651,7 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
 
                 fout << "\ng arrangement\n";
                 for (Index v : arr_verts) {
-                    auto pos = V_arr.row(v);
+                    auto pos = V_arr_dbl.row(v);
                     fout << "v " << pos(0) << " " << pos(1) << " " << pos(2)
                          << "\n";
                     arr_obj_idx[v] = obj_counter++;
@@ -678,8 +750,8 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
                         dumped_fu_ge2_zero++;
                         std::string parents_str;
                         for (Index p : f_u) parents_str += std::to_string(p) + " ";
-                        Eigen::Matrix<double, 3, 1> P0 = V_arr.row(u0).transpose();
-                        Eigen::Matrix<double, 3, 1> P1 = V_arr.row(u1).transpose();
+                        Eigen::Matrix<double, 3, 1> P0 = V_arr_dbl.row(u0).transpose();
+                        Eigen::Matrix<double, 3, 1> P1 = V_arr_dbl.row(u1).transpose();
                         sweep::logger().info(
                             "  [ambig |F_U|>=2 match=0] eid={} F_U={{{}}} endpoints=({:.6g},{:.6g},{:.6g})-({:.6g},{:.6g},{:.6g})",
                             eid,
@@ -730,8 +802,8 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
                 found_missed++;
                 if (dumped_missed < DUMP_LIMIT) {
                     dumped_missed++;
-                    Eigen::Matrix<double, 3, 1> P0 = V_arr.row(u0).transpose();
-                    Eigen::Matrix<double, 3, 1> P1 = V_arr.row(u1).transpose();
+                    Eigen::Matrix<double, 3, 1> P0 = V_arr_dbl.row(u0).transpose();
+                    Eigen::Matrix<double, 3, 1> P1 = V_arr_dbl.row(u1).transpose();
                     sweep::logger().info(
                         "  [missed-geom] eid={} F_U size={} endpoints=({:.6g},{:.6g},{:.6g})-({:.6g},{:.6g},{:.6g})",
                         eid,
