@@ -68,6 +68,15 @@ target_link_libraries(sweep
 add_library(sweep::sweep ALIAS sweep)
 set_target_properties(sweep PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
+# Optional: enable geometric verification of envelope_edge_id inheritance.
+# Adds a second pass in compute_envelope_arrangement that checks each valid
+# label geometrically and probes missed inheritances. Intended for testing
+# during development of the edge-label feature; leave OFF for normal builds.
+option(SWEEP_VERIFY_EDGE_LABELS "Enable geometric verification of edge-label inheritance" OFF)
+if(SWEEP_VERIFY_EDGE_LABELS)
+    target_compile_definitions(sweep PRIVATE SWEEP_VERIFY_EDGE_LABELS)
+endif()
+
 file(GLOB SWEEP_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/app/include/*.h)
 add_executable(generalized_sweep "app/generalized_sweep.cpp")
 

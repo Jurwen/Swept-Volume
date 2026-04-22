@@ -12,7 +12,9 @@
 #include <lagrange/SurfaceMesh.h>
 #include <lagrange/mesh_cleanup/remove_isolated_vertices.h>
 #include <lagrange/utils/SmallVector.h>
+#include <lagrange/utils/invalid.h>
 #include <lagrange/views.h>
+#include <sweep/logger.h>
 
 #include <algorithm>
 
@@ -294,6 +296,356 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
             if (feature_edge) is_feature[eid] = 1;
         }
     }
+
+    // Inherit envelope edge labels onto the arrangement edges.
+    //
+    // For each output arrangement edge `eid`, collect the parents (envelope
+    // facet ids) of every incident arrangement facet. Duplicates in that
+    // multiset identify parents for which `eid` is an interior split, so they
+    // do not help identify a parent envelope edge; drop them, and dispatch on
+    // the remaining set `F_U`:
+    //
+    //   |F_U| == 0 : new edge (intersection curve, or parent-interior split
+    //                with no unique-occurrence parent) -> invalid
+    //   |F_U| == 1 : boundary case. The edge lies on a boundary input edge of
+    //                the single surviving parent. Inherit iff that parent has
+    //                exactly one boundary envelope edge.
+    //   |F_U| >= 2 : interior case. Inherit iff all parents in F_U share
+    //                exactly one common input envelope edge.
+    //
+    // Ambiguous corner cases (|F_U|==1 with multiple boundary edges on the
+    // parent; |F_U|>=2 with zero or multiple shared input edges) are left as
+    // invalid<Index>() and documented as acceptable.
+    sweep_arrangement.template create_attribute<Index>(
+        "envelope_edge_id",
+        lagrange::AttributeElement::Edge,
+        lagrange::AttributeUsage::Scalar,
+        1);
+    auto envelope_edge_id =
+        attribute_vector_ref<Index>(sweep_arrangement, "envelope_edge_id");
+    const Index invalid_id = lagrange::invalid<Index>();
+    envelope_edge_id.setConstant(invalid_id);
+
+    std::vector<Index> parents; // reused per edge
+    parents.reserve(8);
+    std::vector<Index> f_u; // elements of `parents` with multiplicity 1
+    f_u.reserve(8);
+
+    // Small helper: return true iff envelope facet `p` has `e_in` as one of
+    // its three edges.
+    auto facet_has_edge = [&](Index p, Index e_in) -> bool {
+        Index cb = envelope.get_facet_corner_begin(p);
+        for (Index k = 0; k < 3; k++) {
+            Index u0 = envelope.get_corner_vertex(cb + k);
+            Index u1 = envelope.get_corner_vertex(cb + (k + 1) % 3);
+            Index e = envelope.find_edge_from_vertices(u0, u1);
+            if (e == e_in) return true;
+        }
+        return false;
+    };
+
+    // Debug counters (scoped to this loop).
+    size_t count_valid = 0;
+    size_t count_fu0 = 0;
+    size_t count_fu1 = 0;
+    size_t count_fu_ge2 = 0;
+
+    for (Index eid = 0; eid < num_edges; eid++) {
+        parents.clear();
+        sweep_arrangement.foreach_facet_around_edge(eid, [&](Index fid) {
+            parents.push_back(envelope_facet_id[fid]);
+        });
+
+        // Build F_U: elements of `parents` with multiplicity 1.
+        f_u.clear();
+        for (size_t i = 0; i < parents.size(); i++) {
+            size_t occ = 0;
+            for (size_t j = 0; j < parents.size(); j++) {
+                if (parents[j] == parents[i]) occ++;
+            }
+            if (occ == 1) f_u.push_back(parents[i]);
+        }
+
+        Index label = invalid_id;
+
+        if (f_u.size() == 1) {
+            count_fu1++;
+            Index p = f_u[0];
+            Index cb = envelope.get_facet_corner_begin(p);
+            size_t boundary_count = 0;
+            Index boundary_edge = invalid_id;
+            for (Index k = 0; k < 3; k++) {
+                Index v0 = envelope.get_corner_vertex(cb + k);
+                Index v1 = envelope.get_corner_vertex(cb + (k + 1) % 3);
+                Index e_in = envelope.find_edge_from_vertices(v0, v1);
+                if (e_in == invalid_id) continue;
+                if (envelope.count_num_corners_around_edge(e_in) == 1) {
+                    boundary_count++;
+                    boundary_edge = e_in;
+                }
+            }
+            if (boundary_count == 1) label = boundary_edge;
+        } else if (f_u.size() >= 2) {
+            count_fu_ge2++;
+            Index p0 = f_u[0];
+            Index cb = envelope.get_facet_corner_begin(p0);
+            size_t match_count = 0;
+            Index matched = invalid_id;
+            for (Index k = 0; k < 3; k++) {
+                Index v0 = envelope.get_corner_vertex(cb + k);
+                Index v1 = envelope.get_corner_vertex(cb + (k + 1) % 3);
+                Index e_in = envelope.find_edge_from_vertices(v0, v1);
+                if (e_in == invalid_id) continue;
+                bool shared_by_all = true;
+                for (size_t i = 1; i < f_u.size(); i++) {
+                    if (!facet_has_edge(f_u[i], e_in)) {
+                        shared_by_all = false;
+                        break;
+                    }
+                }
+                if (shared_by_all) {
+                    match_count++;
+                    matched = e_in;
+                }
+            }
+            if (match_count == 1) label = matched;
+        } else {
+            count_fu0++;
+        }
+
+        envelope_edge_id[eid] = label;
+        if (label != invalid_id) count_valid++;
+    }
+
+    sweep::logger().info(
+        "Edge-label inheritance: {} / {} edges got a valid envelope edge id "
+        "(|F_U|=0: {}, |F_U|=1: {}, |F_U|>=2: {})",
+        count_valid,
+        num_edges,
+        count_fu0,
+        count_fu1,
+        count_fu_ge2);
+
+#ifdef SWEEP_VERIFY_EDGE_LABELS
+    // Geometric verification of edge-label inheritance.
+    //
+    // Two checks:
+    //   (1) For each edge with a valid label, confirm both endpoints lie on
+    //       the claimed parent input edge (within tolerance).
+    //   (2) For each invalid edge with |F_U| >= 1, check whether the edge
+    //       nonetheless lies geometrically on some edge of some parent
+    //       facet. This is the "missed inheritance" probe.
+    //
+    // Sub-case counters for the ambiguous cases let us inspect why the
+    // topological test declined to assign a label.
+    {
+        const auto& V_env = V;                    // envelope vertex positions (double)
+        const auto& V_arr = out_vertices;         // arrangement vertex positions (double)
+
+        // Tolerance: relative to envelope bounding-box diagonal.
+        Eigen::Matrix<double, 3, 1> bb_min = V_env.colwise().minCoeff().transpose();
+        Eigen::Matrix<double, 3, 1> bb_max = V_env.colwise().maxCoeff().transpose();
+        double bbox_diag = (bb_max - bb_min).norm();
+        double tol = 1e-6 * bbox_diag;
+
+        // Return distance from point P to the line segment [A, B].
+        auto dist_point_to_segment =
+            [](const Eigen::Matrix<double, 3, 1>& P,
+               const Eigen::Matrix<double, 3, 1>& A,
+               const Eigen::Matrix<double, 3, 1>& B) -> double {
+            Eigen::Matrix<double, 3, 1> AB = B - A;
+            double ab2 = AB.squaredNorm();
+            if (ab2 < 1e-30) return (P - A).norm();
+            double t = (P - A).dot(AB) / ab2;
+            t = std::max(0.0, std::min(1.0, t));
+            return (P - (A + t * AB)).norm();
+        };
+
+        // Is arrangement edge `eid` (with endpoints u0, u1) on-input-edge `e_in`?
+        auto arr_edge_on_input_edge = [&](Index u0, Index u1, Index e_in) -> bool {
+            auto [iv0, iv1] = envelope.get_edge_vertices(e_in);
+            Eigen::Matrix<double, 3, 1> A = V_env.row(iv0).transpose();
+            Eigen::Matrix<double, 3, 1> B = V_env.row(iv1).transpose();
+            Eigen::Matrix<double, 3, 1> P0 = V_arr.row(u0).transpose();
+            Eigen::Matrix<double, 3, 1> P1 = V_arr.row(u1).transpose();
+            return dist_point_to_segment(P0, A, B) < tol &&
+                   dist_point_to_segment(P1, A, B) < tol;
+        };
+
+        size_t pass_valid = 0;
+        size_t fail_valid = 0;
+        size_t tested_missed = 0; // invalid edges with |F_U| >= 1
+        size_t found_missed = 0;  // invalid edges that DO lie on some parent edge
+        size_t amb_fu1_multi_boundary = 0;
+        size_t amb_fu_ge2_zero_match = 0;
+        size_t amb_fu_ge2_multi_match = 0;
+
+        // Dump the first few ambiguous cases for inspection.
+        constexpr size_t DUMP_LIMIT = 5;
+        size_t dumped_fu1 = 0;
+        size_t dumped_fu_ge2_zero = 0;
+        size_t dumped_fu_ge2_multi = 0;
+        size_t dumped_missed = 0;
+
+        for (Index eid = 0; eid < num_edges; eid++) {
+            parents.clear();
+            sweep_arrangement.foreach_facet_around_edge(eid, [&](Index fid) {
+                parents.push_back(envelope_facet_id[fid]);
+            });
+            f_u.clear();
+            for (size_t i = 0; i < parents.size(); i++) {
+                size_t occ = 0;
+                for (size_t j = 0; j < parents.size(); j++) {
+                    if (parents[j] == parents[i]) occ++;
+                }
+                if (occ == 1) f_u.push_back(parents[i]);
+            }
+
+            auto [u0, u1] = sweep_arrangement.get_edge_vertices(eid);
+            Index label = envelope_edge_id[eid];
+
+            if (label != invalid_id) {
+                // Check (1): the valid label really places the edge on the input edge.
+                if (arr_edge_on_input_edge(u0, u1, label)) {
+                    pass_valid++;
+                } else {
+                    fail_valid++;
+                }
+                continue;
+            }
+
+            // Invalid edge. Classify the reason and test (2) if |F_U| >= 1.
+            if (f_u.empty()) continue;
+
+            // Re-derive sub-case (same logic as the inheritance pass).
+            if (f_u.size() == 1) {
+                Index p = f_u[0];
+                Index cb = envelope.get_facet_corner_begin(p);
+                size_t boundary_count = 0;
+                for (Index k = 0; k < 3; k++) {
+                    Index v0 = envelope.get_corner_vertex(cb + k);
+                    Index v1 = envelope.get_corner_vertex(cb + (k + 1) % 3);
+                    Index e_in = envelope.find_edge_from_vertices(v0, v1);
+                    if (e_in == invalid_id) continue;
+                    if (envelope.count_num_corners_around_edge(e_in) == 1) {
+                        boundary_count++;
+                    }
+                }
+                if (boundary_count != 1) {
+                    amb_fu1_multi_boundary++;
+                    if (dumped_fu1 < DUMP_LIMIT) {
+                        dumped_fu1++;
+                        sweep::logger().info(
+                            "  [ambig |F_U|=1] eid={} parent={} boundary_count={}",
+                            eid,
+                            p,
+                            boundary_count);
+                    }
+                }
+            } else {
+                // |F_U| >= 2
+                Index p0 = f_u[0];
+                Index cb = envelope.get_facet_corner_begin(p0);
+                size_t match_count = 0;
+                for (Index k = 0; k < 3; k++) {
+                    Index v0 = envelope.get_corner_vertex(cb + k);
+                    Index v1 = envelope.get_corner_vertex(cb + (k + 1) % 3);
+                    Index e_in = envelope.find_edge_from_vertices(v0, v1);
+                    if (e_in == invalid_id) continue;
+                    bool shared_by_all = true;
+                    for (size_t i = 1; i < f_u.size(); i++) {
+                        if (!facet_has_edge(f_u[i], e_in)) {
+                            shared_by_all = false;
+                            break;
+                        }
+                    }
+                    if (shared_by_all) match_count++;
+                }
+                if (match_count == 0) {
+                    amb_fu_ge2_zero_match++;
+                    if (dumped_fu_ge2_zero < DUMP_LIMIT) {
+                        dumped_fu_ge2_zero++;
+                        std::string parents_str;
+                        for (Index p : f_u) parents_str += std::to_string(p) + " ";
+                        Eigen::Matrix<double, 3, 1> P0 = V_arr.row(u0).transpose();
+                        Eigen::Matrix<double, 3, 1> P1 = V_arr.row(u1).transpose();
+                        sweep::logger().info(
+                            "  [ambig |F_U|>=2 match=0] eid={} F_U={{{}}} endpoints=({:.6g},{:.6g},{:.6g})-({:.6g},{:.6g},{:.6g})",
+                            eid,
+                            parents_str,
+                            P0[0],
+                            P0[1],
+                            P0[2],
+                            P1[0],
+                            P1[1],
+                            P1[2]);
+                    }
+                } else if (match_count > 1) {
+                    amb_fu_ge2_multi_match++;
+                    if (dumped_fu_ge2_multi < DUMP_LIMIT) {
+                        dumped_fu_ge2_multi++;
+                        std::string parents_str;
+                        for (Index p : f_u) parents_str += std::to_string(p) + " ";
+                        sweep::logger().info(
+                            "  [ambig |F_U|>=2 match={}] eid={} F_U={{{}}}",
+                            match_count,
+                            eid,
+                            parents_str);
+                    }
+                }
+            }
+
+            // Check (2): does this invalid edge geometrically lie on some input
+            // edge of some parent facet?
+            tested_missed++;
+            bool found = false;
+            for (Index p : f_u) {
+                Index cb = envelope.get_facet_corner_begin(p);
+                for (Index k = 0; k < 3 && !found; k++) {
+                    Index v0 = envelope.get_corner_vertex(cb + k);
+                    Index v1 = envelope.get_corner_vertex(cb + (k + 1) % 3);
+                    Index e_in = envelope.find_edge_from_vertices(v0, v1);
+                    if (e_in == invalid_id) continue;
+                    if (arr_edge_on_input_edge(u0, u1, e_in)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) break;
+            }
+            if (found) {
+                found_missed++;
+                if (dumped_missed < DUMP_LIMIT) {
+                    dumped_missed++;
+                    Eigen::Matrix<double, 3, 1> P0 = V_arr.row(u0).transpose();
+                    Eigen::Matrix<double, 3, 1> P1 = V_arr.row(u1).transpose();
+                    sweep::logger().info(
+                        "  [missed-geom] eid={} F_U size={} endpoints=({:.6g},{:.6g},{:.6g})-({:.6g},{:.6g},{:.6g})",
+                        eid,
+                        f_u.size(),
+                        P0[0],
+                        P0[1],
+                        P0[2],
+                        P1[0],
+                        P1[1],
+                        P1[2]);
+                }
+            }
+        }
+
+        sweep::logger().info(
+            "Verify: valid labels pass/fail = {}/{}; "
+            "invalid edges with |F_U|>=1: tested {}, geom-found-on-parent-edge {}; "
+            "ambiguous counts: |F_U|=1 multi-boundary {}, |F_U|>=2 zero-match {}, multi-match {}",
+            pass_valid,
+            fail_valid,
+            tested_missed,
+            found_missed,
+            amb_fu1_multi_boundary,
+            amb_fu_ge2_zero_match,
+            amb_fu_ge2_multi_match);
+    }
+#endif // SWEEP_VERIFY_EDGE_LABELS
 
     return sweep_arrangement;
 }
