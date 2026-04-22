@@ -17,6 +17,7 @@
 #include <sweep/logger.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <fstream>
 
@@ -302,22 +303,18 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
     // Inherit envelope edge labels onto the arrangement edges.
     //
     // For each output arrangement edge `eid`, collect the parents (envelope
-    // facet ids) of every incident arrangement facet. Duplicates in that
-    // multiset identify parents for which `eid` is an interior split, so they
-    // do not help identify a parent envelope edge; drop them, and dispatch on
-    // the remaining set `F_U`:
+    // facet ids) of every incident arrangement facet. Drop parents with
+    // multiplicity > 1 (those parents are interior-split by `eid`, so they
+    // don't identify a parent envelope edge). The remaining set `F_U`
+    // narrows the candidate input edges for a geometric check.
     //
-    //   |F_U| == 0 : new edge (intersection curve, or parent-interior split
-    //                with no unique-occurrence parent) -> invalid
-    //   |F_U| == 1 : boundary case. The edge lies on a boundary input edge of
-    //                the single surviving parent. Inherit iff that parent has
-    //                exactly one boundary envelope edge.
-    //   |F_U| >= 2 : interior case. Inherit iff all parents in F_U share
-    //                exactly one common input envelope edge.
-    //
-    // Ambiguous corner cases (|F_U|==1 with multiple boundary edges on the
-    // parent; |F_U|>=2 with zero or multiple shared input edges) are left as
-    // invalid<Index>() and documented as acceptable.
+    // The topological rule picks a single candidate (the shared-by-all edge
+    // when |F_U|>=2, or the unique boundary edge when |F_U|==1). A sanity
+    // gate confirms that candidate is geometrically on the output edge;
+    // otherwise, or when the topological rule is ambiguous, a geometric
+    // fallback searches all F_U parent edges for the nearest within
+    // tolerance. Edges with |F_U|==0 or no nearby candidate are left as
+    // invalid<Index>().
     sweep_arrangement.template create_attribute<Index>(
         "envelope_edge_id",
         lagrange::AttributeElement::Edge,
@@ -346,8 +343,7 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
         return false;
     };
 
-    // Geometry helpers used by both the main inheritance loop (ambiguity
-    // tiebreaker) and the SWEEP_VERIFY_EDGE_LABELS block. `V` is the
+    // Geometry for the sanity gate and geometric fallback. `V` is the
     // envelope vertex matrix cast to double; `out_vertices` is the
     // arrangement vertex matrix from the engine.
     const auto& V_env_dbl = V;
@@ -370,8 +366,7 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
     };
 
     // Max of the two endpoint-to-segment distances from arrangement edge
-    // (u0, u1) to input envelope edge `e_in`. Used to rank candidate input
-    // edges when the topological test is ambiguous.
+    // (u0, u1) to input envelope edge `e_in`.
     auto max_endpoint_dist = [&](Index u0, Index u1, Index e_in) -> double {
         auto [iv0, iv1] = envelope.get_edge_vertices(e_in);
         Eigen::Matrix<double, 3, 1> A = V_env_dbl.row(iv0).transpose();
@@ -389,6 +384,14 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
     size_t count_fu1 = 0;
     size_t count_fu_ge2 = 0;
     size_t count_recovered_by_geom = 0;
+    size_t count_topo_rejected_by_gate = 0;
+
+    // Per-edge flag: 1 iff the label was chosen by the geometric tiebreaker
+    // rather than by the topological rule. Used by the verify block to
+    // distinguish failure modes.
+    std::vector<uint8_t> recovered_flag(num_edges, 0);
+
+    auto edge_label_start = std::chrono::high_resolution_clock::now();
 
     for (Index eid = 0; eid < num_edges; eid++) {
         parents.clear();
@@ -409,6 +412,33 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
         auto [u0, u1] = sweep_arrangement.get_edge_vertices(eid);
         Index label = invalid_id;
         bool recovered_by_geom = false;
+        bool topo_rejected_by_gate = false;
+
+        // Full-geometry fallback: scan all input edges of all F_U parents,
+        // pick the nearest to the arrangement edge, accept if <= tol.
+        // Sets `label` and `recovered_by_geom` on success.
+        auto geometric_fallback_over_f_u = [&]() {
+            double best_dist = std::numeric_limits<double>::infinity();
+            Index best_edge = invalid_id;
+            for (Index p : f_u) {
+                Index cb_p = envelope.get_facet_corner_begin(p);
+                for (Index k = 0; k < 3; k++) {
+                    Index v0 = envelope.get_corner_vertex(cb_p + k);
+                    Index v1 = envelope.get_corner_vertex(cb_p + (k + 1) % 3);
+                    Index e_in = envelope.find_edge_from_vertices(v0, v1);
+                    if (e_in == invalid_id) continue;
+                    double d = max_endpoint_dist(u0, u1, e_in);
+                    if (d < best_dist) {
+                        best_dist = d;
+                        best_edge = e_in;
+                    }
+                }
+            }
+            if (best_dist <= geom_tol) {
+                label = best_edge;
+                recovered_by_geom = true;
+            }
+        };
 
         if (f_u.size() == 1) {
             count_fu1++;
@@ -426,7 +456,15 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
                 }
             }
             if (boundary_edges.size() == 1) {
-                label = boundary_edges[0];
+                // Sanity gate: confirm the topological pick is geometrically on
+                // the output edge. If not, treat as ambiguous and fall through.
+                Index candidate = boundary_edges[0];
+                if (max_endpoint_dist(u0, u1, candidate) <= geom_tol) {
+                    label = candidate;
+                } else {
+                    topo_rejected_by_gate = true;
+                    geometric_fallback_over_f_u();
+                }
             } else if (boundary_edges.size() >= 2) {
                 // Geometric tiebreaker: pick the boundary edge whose
                 // max-endpoint-distance is smallest, if within tolerance.
@@ -465,7 +503,16 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
                 if (shared_by_all) shared_edges.push_back(e_in);
             }
             if (shared_edges.size() == 1) {
-                label = shared_edges[0];
+                // Sanity gate: confirm the topological pick is geometrically on
+                // the output edge. Coplanar-parent overlaps can produce a
+                // topologically-shared edge that isn't the geometric parent.
+                Index candidate = shared_edges[0];
+                if (max_endpoint_dist(u0, u1, candidate) <= geom_tol) {
+                    label = candidate;
+                } else {
+                    topo_rejected_by_gate = true;
+                    geometric_fallback_over_f_u();
+                }
             } else if (shared_edges.size() >= 2) {
                 // Geometric tiebreaker among the shared edges.
                 double best_dist = std::numeric_limits<double>::infinity();
@@ -484,88 +531,64 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
             } else {
                 // shared_edges.empty() - no topological match. Fall back to
                 // the geometric nearest input edge over all of F_U's edges.
-                double best_dist = std::numeric_limits<double>::infinity();
-                Index best_edge = invalid_id;
-                for (Index p : f_u) {
-                    Index cb_p = envelope.get_facet_corner_begin(p);
-                    for (Index k = 0; k < 3; k++) {
-                        Index v0 = envelope.get_corner_vertex(cb_p + k);
-                        Index v1 = envelope.get_corner_vertex(cb_p + (k + 1) % 3);
-                        Index e_in = envelope.find_edge_from_vertices(v0, v1);
-                        if (e_in == invalid_id) continue;
-                        double d = max_endpoint_dist(u0, u1, e_in);
-                        if (d < best_dist) {
-                            best_dist = d;
-                            best_edge = e_in;
-                        }
-                    }
-                }
-                if (best_dist <= geom_tol) {
-                    label = best_edge;
-                    recovered_by_geom = true;
-                }
+                geometric_fallback_over_f_u();
             }
         } else {
             count_fu0++;
         }
 
         if (recovered_by_geom) count_recovered_by_geom++;
+        if (topo_rejected_by_gate) count_topo_rejected_by_gate++;
 
         envelope_edge_id[eid] = label;
         if (label != invalid_id) count_valid++;
+        if (recovered_by_geom) recovered_flag[eid] = 1;
     }
+
+    auto edge_label_end = std::chrono::high_resolution_clock::now();
+    double edge_label_seconds =
+        std::chrono::duration<double>(edge_label_end - edge_label_start).count();
 
     sweep::logger().info(
         "Edge-label inheritance: {} / {} edges got a valid envelope edge id "
-        "(|F_U|=0: {}, |F_U|=1: {}, |F_U|>=2: {}; recovered by geom tiebreaker: {})",
+        "(|F_U|=0: {}, |F_U|=1: {}, |F_U|>=2: {}; recovered by geom tiebreaker: {}, "
+        "topo rejected by sanity gate: {}) [{:.4f} s]",
         count_valid,
         num_edges,
         count_fu0,
         count_fu1,
         count_fu_ge2,
-        count_recovered_by_geom);
+        count_recovered_by_geom,
+        count_topo_rejected_by_gate,
+        edge_label_seconds);
 
 #ifdef SWEEP_VERIFY_EDGE_LABELS
-    // Geometric verification of edge-label inheritance.
+    // Regression canary for edge-label inheritance. The main pass already
+    // applies a geometric check before assigning any label, so all counts
+    // below should be zero on correct input; any non-zero means a bug in
+    // the main pass (stale tolerance, missed code path, etc).
     //
-    // Two checks:
-    //   (1) For each edge with a valid label, confirm both endpoints lie on
-    //       the claimed parent input edge (within tolerance).
-    //   (2) For each invalid edge with |F_U| >= 1, check whether the edge
-    //       nonetheless lies geometrically on some edge of some parent
-    //       facet. This is the "missed inheritance" probe.
-    //
-    // The main inheritance pass now includes a geometric tiebreaker, so the
-    // ambiguous sub-case counters below count *residual* ambiguity that the
-    // tiebreaker could not resolve (either because no candidate edge was
-    // close enough, or because the F_U set had no candidate input edge to
-    // rank at all).
+    //   (1) Each valid label must pass max_endpoint_dist <= tol.
+    //   (2) Each invalid edge with |F_U| >= 1 must NOT lie on any parent
+    //       input edge (otherwise the main pass missed an inheritance).
     {
-        // Geometry helpers are hoisted above the main loop; reuse them here.
         auto arr_edge_on_input_edge = [&](Index uu0, Index uu1, Index e_in) -> bool {
-            return max_endpoint_dist(uu0, uu1, e_in) < geom_tol;
+            return max_endpoint_dist(uu0, uu1, e_in) <= geom_tol;
         };
 
         size_t pass_valid = 0;
         size_t fail_valid = 0;
-        size_t tested_missed = 0; // invalid edges with |F_U| >= 1
-        size_t found_missed = 0;  // invalid edges that DO lie on some parent edge
-        size_t amb_fu1_multi_boundary = 0;
-        size_t amb_fu_ge2_zero_match = 0;
-        size_t amb_fu_ge2_multi_match = 0;
+        size_t fail_valid_recovered = 0;   // came from geometric fallback
+        size_t fail_valid_topological = 0; // came from topological rule
+        size_t dumped_fail_valid = 0;
+        size_t tested_missed = 0;
+        size_t found_missed = 0;
 
-        // Dump the first few ambiguous cases for inspection.
         constexpr size_t DUMP_LIMIT = 5;
-        size_t dumped_fu1 = 0;
-        size_t dumped_fu_ge2_zero = 0;
-        size_t dumped_fu_ge2_multi = 0;
         size_t dumped_missed = 0;
 
-        // Optional per-case OBJ neighborhood dump.
+        // Optional OBJ neighborhood dump for failing edges.
         // Enabled by setting env var SWEEP_AMBIG_DUMP_DIR to an existing dir.
-        // Each file contains: F_U parent envelope facets (g envelope),
-        // arrangement facets incident to the ambiguous edge (g arrangement),
-        // and the ambiguous edge itself as an OBJ line (g ambig_edge).
         const char* ambig_dump_dir = std::getenv("SWEEP_AMBIG_DUMP_DIR");
         auto dump_ambig_obj =
             [&](const std::string& tag, Index eid, Index u0, Index u1) {
@@ -576,7 +599,6 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
                 std::ofstream fout(fname);
                 if (!fout) return;
 
-                // Collect unique envelope vertex ids from F_U parents.
                 std::vector<Index> env_verts;
                 auto add_env_vert = [&](Index v) {
                     if (std::find(env_verts.begin(), env_verts.end(), v) ==
@@ -591,8 +613,6 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
                     }
                 }
 
-                // Collect unique arrangement vertex ids from incident arr facets
-                // and the ambiguous edge endpoints.
                 std::vector<Index> arr_verts;
                 auto add_arr_vert = [&](Index v) {
                     if (std::find(arr_verts.begin(), arr_verts.end(), v) ==
@@ -618,13 +638,11 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
                 add_arr_vert(u0);
                 add_arr_vert(u1);
 
-                // Write envelope vertices first, then arrangement vertices.
-                // Build maps so we can translate ids to OBJ (1-based) indices.
                 ankerl::unordered_dense::map<Index, Index> env_obj_idx;
                 ankerl::unordered_dense::map<Index, Index> arr_obj_idx;
                 Index obj_counter = 1;
 
-                fout << "# Ambiguous edge neighborhood dump\n";
+                fout << "# Verify failure dump\n";
                 fout << "# tag: " << tag << ", arrangement edge id: " << eid << "\n";
                 fout << "# F_U parents:";
                 for (Index p : f_u) fout << " " << p;
@@ -692,96 +710,35 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
                     pass_valid++;
                 } else {
                     fail_valid++;
+                    bool was_recovered = (recovered_flag[eid] != 0);
+                    if (was_recovered) {
+                        fail_valid_recovered++;
+                    } else {
+                        fail_valid_topological++;
+                    }
+                    double d = max_endpoint_dist(u0, u1, label);
+                    if (dumped_fail_valid < DUMP_LIMIT) {
+                        dumped_fail_valid++;
+                        sweep::logger().info(
+                            "  [verify fail] eid={} label={} dist={:.3e} tol={:.3e} "
+                            "ratio={:.3f} source={}",
+                            eid,
+                            label,
+                            d,
+                            geom_tol,
+                            d / geom_tol,
+                            was_recovered ? "geom_tiebreaker" : "topological");
+                        dump_ambig_obj("false_pos", eid, u0, u1);
+                    }
                 }
                 continue;
             }
 
-            // Invalid edge. Classify the reason and test (2) if |F_U| >= 1.
+            // Invalid edge. Check (2): if |F_U| >= 1, the edge should NOT
+            // lie on any parent envelope edge (the main pass would have
+            // caught it via the geometric fallback otherwise).
             if (f_u.empty()) continue;
 
-            // Re-derive sub-case (same logic as the inheritance pass).
-            if (f_u.size() == 1) {
-                Index p = f_u[0];
-                Index cb = envelope.get_facet_corner_begin(p);
-                size_t boundary_count = 0;
-                for (Index k = 0; k < 3; k++) {
-                    Index v0 = envelope.get_corner_vertex(cb + k);
-                    Index v1 = envelope.get_corner_vertex(cb + (k + 1) % 3);
-                    Index e_in = envelope.find_edge_from_vertices(v0, v1);
-                    if (e_in == invalid_id) continue;
-                    if (envelope.count_num_corners_around_edge(e_in) == 1) {
-                        boundary_count++;
-                    }
-                }
-                if (boundary_count != 1) {
-                    amb_fu1_multi_boundary++;
-                    if (dumped_fu1 < DUMP_LIMIT) {
-                        dumped_fu1++;
-                        sweep::logger().info(
-                            "  [ambig |F_U|=1] eid={} parent={} boundary_count={}",
-                            eid,
-                            p,
-                            boundary_count);
-                        dump_ambig_obj("fu1", eid, u0, u1);
-                    }
-                }
-            } else {
-                // |F_U| >= 2
-                Index p0 = f_u[0];
-                Index cb = envelope.get_facet_corner_begin(p0);
-                size_t match_count = 0;
-                for (Index k = 0; k < 3; k++) {
-                    Index v0 = envelope.get_corner_vertex(cb + k);
-                    Index v1 = envelope.get_corner_vertex(cb + (k + 1) % 3);
-                    Index e_in = envelope.find_edge_from_vertices(v0, v1);
-                    if (e_in == invalid_id) continue;
-                    bool shared_by_all = true;
-                    for (size_t i = 1; i < f_u.size(); i++) {
-                        if (!facet_has_edge(f_u[i], e_in)) {
-                            shared_by_all = false;
-                            break;
-                        }
-                    }
-                    if (shared_by_all) match_count++;
-                }
-                if (match_count == 0) {
-                    amb_fu_ge2_zero_match++;
-                    if (dumped_fu_ge2_zero < DUMP_LIMIT) {
-                        dumped_fu_ge2_zero++;
-                        std::string parents_str;
-                        for (Index p : f_u) parents_str += std::to_string(p) + " ";
-                        Eigen::Matrix<double, 3, 1> P0 = V_arr_dbl.row(u0).transpose();
-                        Eigen::Matrix<double, 3, 1> P1 = V_arr_dbl.row(u1).transpose();
-                        sweep::logger().info(
-                            "  [ambig |F_U|>=2 match=0] eid={} F_U={{{}}} endpoints=({:.6g},{:.6g},{:.6g})-({:.6g},{:.6g},{:.6g})",
-                            eid,
-                            parents_str,
-                            P0[0],
-                            P0[1],
-                            P0[2],
-                            P1[0],
-                            P1[1],
-                            P1[2]);
-                        dump_ambig_obj("fu_ge2_zero", eid, u0, u1);
-                    }
-                } else if (match_count > 1) {
-                    amb_fu_ge2_multi_match++;
-                    if (dumped_fu_ge2_multi < DUMP_LIMIT) {
-                        dumped_fu_ge2_multi++;
-                        std::string parents_str;
-                        for (Index p : f_u) parents_str += std::to_string(p) + " ";
-                        sweep::logger().info(
-                            "  [ambig |F_U|>=2 match={}] eid={} F_U={{{}}}",
-                            match_count,
-                            eid,
-                            parents_str);
-                        dump_ambig_obj("fu_ge2_multi", eid, u0, u1);
-                    }
-                }
-            }
-
-            // Check (2): does this invalid edge geometrically lie on some input
-            // edge of some parent facet?
             tested_missed++;
             bool found = false;
             for (Index p : f_u) {
@@ -819,16 +776,14 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
         }
 
         sweep::logger().info(
-            "Verify: valid labels pass/fail = {}/{}; "
-            "invalid edges with |F_U|>=1: tested {}, geom-found-on-parent-edge {}; "
-            "ambiguous counts: |F_U|=1 multi-boundary {}, |F_U|>=2 zero-match {}, multi-match {}",
+            "Verify: valid labels pass/fail = {}/{} (fail: {} topological, {} from fallback); "
+            "invalid edges with |F_U|>=1: tested {}, geom-found-on-parent-edge {}",
             pass_valid,
             fail_valid,
+            fail_valid_topological,
+            fail_valid_recovered,
             tested_missed,
-            found_missed,
-            amb_fu1_multi_boundary,
-            amb_fu_ge2_zero_match,
-            amb_fu_ge2_multi_match);
+            found_missed);
     }
 #endif // SWEEP_VERIFY_EDGE_LABELS
 
