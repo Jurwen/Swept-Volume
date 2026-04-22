@@ -17,6 +17,8 @@
 #include <sweep/logger.h>
 
 #include <algorithm>
+#include <cstdlib>
+#include <fstream>
 
 template <typename Scalar, typename Index>
 lagrange::SurfaceMesh<Scalar, Index> isocontour_to_mesh(mtetcol::Contour<4>& isocontour)
@@ -487,6 +489,114 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
         size_t dumped_fu_ge2_multi = 0;
         size_t dumped_missed = 0;
 
+        // Optional per-case OBJ neighborhood dump.
+        // Enabled by setting env var SWEEP_AMBIG_DUMP_DIR to an existing dir.
+        // Each file contains: F_U parent envelope facets (g envelope),
+        // arrangement facets incident to the ambiguous edge (g arrangement),
+        // and the ambiguous edge itself as an OBJ line (g ambig_edge).
+        const char* ambig_dump_dir = std::getenv("SWEEP_AMBIG_DUMP_DIR");
+        auto dump_ambig_obj =
+            [&](const std::string& tag, Index eid, Index u0, Index u1) {
+                if (ambig_dump_dir == nullptr) return;
+                std::string fname =
+                    std::string(ambig_dump_dir) + "/ambig_" + tag + "_eid" +
+                    std::to_string(eid) + ".obj";
+                std::ofstream fout(fname);
+                if (!fout) return;
+
+                // Collect unique envelope vertex ids from F_U parents.
+                std::vector<Index> env_verts;
+                auto add_env_vert = [&](Index v) {
+                    if (std::find(env_verts.begin(), env_verts.end(), v) ==
+                        env_verts.end()) {
+                        env_verts.push_back(v);
+                    }
+                };
+                for (Index p : f_u) {
+                    Index cb = envelope.get_facet_corner_begin(p);
+                    for (Index k = 0; k < 3; k++) {
+                        add_env_vert(envelope.get_corner_vertex(cb + k));
+                    }
+                }
+
+                // Collect unique arrangement vertex ids from incident arr facets
+                // and the ambiguous edge endpoints.
+                std::vector<Index> arr_verts;
+                auto add_arr_vert = [&](Index v) {
+                    if (std::find(arr_verts.begin(), arr_verts.end(), v) ==
+                        arr_verts.end()) {
+                        arr_verts.push_back(v);
+                    }
+                };
+                std::vector<Index> arr_incident_facets;
+                sweep_arrangement.foreach_facet_around_edge(eid, [&](Index fid) {
+                    if (std::find(
+                            arr_incident_facets.begin(),
+                            arr_incident_facets.end(),
+                            fid) == arr_incident_facets.end()) {
+                        arr_incident_facets.push_back(fid);
+                    }
+                });
+                for (Index fid : arr_incident_facets) {
+                    Index cb = sweep_arrangement.get_facet_corner_begin(fid);
+                    for (Index k = 0; k < 3; k++) {
+                        add_arr_vert(sweep_arrangement.get_corner_vertex(cb + k));
+                    }
+                }
+                add_arr_vert(u0);
+                add_arr_vert(u1);
+
+                // Write envelope vertices first, then arrangement vertices.
+                // Build maps so we can translate ids to OBJ (1-based) indices.
+                ankerl::unordered_dense::map<Index, Index> env_obj_idx;
+                ankerl::unordered_dense::map<Index, Index> arr_obj_idx;
+                Index obj_counter = 1;
+
+                fout << "# Ambiguous edge neighborhood dump\n";
+                fout << "# tag: " << tag << ", arrangement edge id: " << eid << "\n";
+                fout << "# F_U parents:";
+                for (Index p : f_u) fout << " " << p;
+                fout << "\n";
+                fout << "# arrangement incident facets:";
+                for (Index f : arr_incident_facets) fout << " " << f;
+                fout << "\n\n";
+
+                fout << "g envelope\n";
+                for (Index v : env_verts) {
+                    auto pos = V_env.row(v);
+                    fout << "v " << pos(0) << " " << pos(1) << " " << pos(2)
+                         << "\n";
+                    env_obj_idx[v] = obj_counter++;
+                }
+                for (Index p : f_u) {
+                    Index cb = envelope.get_facet_corner_begin(p);
+                    Index a = envelope.get_corner_vertex(cb + 0);
+                    Index b = envelope.get_corner_vertex(cb + 1);
+                    Index c = envelope.get_corner_vertex(cb + 2);
+                    fout << "f " << env_obj_idx[a] << " " << env_obj_idx[b] << " "
+                         << env_obj_idx[c] << "\n";
+                }
+
+                fout << "\ng arrangement\n";
+                for (Index v : arr_verts) {
+                    auto pos = V_arr.row(v);
+                    fout << "v " << pos(0) << " " << pos(1) << " " << pos(2)
+                         << "\n";
+                    arr_obj_idx[v] = obj_counter++;
+                }
+                for (Index fid : arr_incident_facets) {
+                    Index cb = sweep_arrangement.get_facet_corner_begin(fid);
+                    Index a = sweep_arrangement.get_corner_vertex(cb + 0);
+                    Index b = sweep_arrangement.get_corner_vertex(cb + 1);
+                    Index c = sweep_arrangement.get_corner_vertex(cb + 2);
+                    fout << "f " << arr_obj_idx[a] << " " << arr_obj_idx[b]
+                         << " " << arr_obj_idx[c] << "\n";
+                }
+
+                fout << "\ng ambig_edge\n";
+                fout << "l " << arr_obj_idx[u0] << " " << arr_obj_idx[u1] << "\n";
+            };
+
         for (Index eid = 0; eid < num_edges; eid++) {
             parents.clear();
             sweep_arrangement.foreach_facet_around_edge(eid, [&](Index fid) {
@@ -540,6 +650,7 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
                             eid,
                             p,
                             boundary_count);
+                        dump_ambig_obj("fu1", eid, u0, u1);
                     }
                 }
             } else {
@@ -579,6 +690,7 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
                             P1[0],
                             P1[1],
                             P1[2]);
+                        dump_ambig_obj("fu_ge2_zero", eid, u0, u1);
                     }
                 } else if (match_count > 1) {
                     amb_fu_ge2_multi_match++;
@@ -591,6 +703,7 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
                             match_count,
                             eid,
                             parents_str);
+                        dump_ambig_obj("fu_ge2_multi", eid, u0, u1);
                     }
                 }
             }
