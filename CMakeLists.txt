@@ -68,15 +68,6 @@ target_link_libraries(sweep
 add_library(sweep::sweep ALIAS sweep)
 set_target_properties(sweep PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-# Optional: enable geometric verification of envelope_edge_id inheritance.
-# Adds a second pass in compute_envelope_arrangement that checks each valid
-# label geometrically and probes missed inheritances. Intended for testing
-# during development of the edge-label feature; leave OFF for normal builds.
-option(SWEEP_VERIFY_EDGE_LABELS "Enable geometric verification of edge-label inheritance" OFF)
-if(SWEEP_VERIFY_EDGE_LABELS)
-    target_compile_definitions(sweep PRIVATE SWEEP_VERIFY_EDGE_LABELS)
-endif()
-
 file(GLOB SWEEP_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/app/include/*.h)
 add_executable(generalized_sweep "app/generalized_sweep.cpp")
 
@@ -124,13 +115,21 @@ if (GEN_SWEEP_TESTS)
     mtet::mtet
     mtetcol::mtetcol
     unordered_dense::unordered_dense
-    smallvector::smallvector)
+    smallvector::smallvector
+    igl::core
+    stf::stf
+    lagrange::core
+    lagrange::io
+    nlohmann_json::nlohmann_json
+    mshio::mshio)
  target_compile_features(sweep_volume_test PRIVATE cxx_std_20)
+ target_include_directories(sweep_volume_test PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src ${CMAKE_CURRENT_LIST_DIR}/app/include)
  target_compile_definitions(sweep_volume_test PRIVATE CATCH_CONFIG_ENABLE_BENCHMARKING)
 target_compile_definitions(
     sweep_volume_test
-    PRIVATE                   
-    -DTEST_FILE="${CMAKE_CURRENT_LIST_DIR}/data"
+    PRIVATE
+    -DDATA_DIR="${CMAKE_CURRENT_LIST_DIR}/data"
+    -DEXAMPLE_DIR="${CMAKE_CURRENT_LIST_DIR}/example"
 )
  catch_discover_tests(sweep_volume_test)
 
