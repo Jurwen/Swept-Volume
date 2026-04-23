@@ -344,12 +344,17 @@ lagrange::SurfaceMesh<Scalar, Index> compute_envelope_arrangement(
     // Geometry for the sanity gate and geometric fallback. `V` is the
     // envelope vertex matrix cast to double; `out_vertices` is the
     // arrangement vertex matrix from the engine.
+    //
+    // `envelope_edge_id_rel_tol` scales the bbox diagonal to get an absolute
+    // tolerance.
+    constexpr double envelope_edge_id_rel_tol = 1e-6;
+
     const auto& V_env_dbl = V;
     const auto& V_arr_dbl = out_vertices;
     Eigen::Matrix<double, 3, 1> bb_min_geo = V_env_dbl.colwise().minCoeff().transpose();
     Eigen::Matrix<double, 3, 1> bb_max_geo = V_env_dbl.colwise().maxCoeff().transpose();
     double bbox_diag_geo = (bb_max_geo - bb_min_geo).norm();
-    double geom_tol = 1e-6 * bbox_diag_geo;
+    double geom_tol = envelope_edge_id_rel_tol * bbox_diag_geo;
 
     auto dist_point_to_segment =
         [](const Eigen::Matrix<double, 3, 1>& P,

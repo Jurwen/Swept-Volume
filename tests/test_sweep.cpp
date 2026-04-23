@@ -445,6 +445,7 @@ void check_envelope_edge_id_post_conditions(const sweep::SweepResult& r)
     Eigen::Matrix<double, 3, 1> bb_min = V_env.colwise().minCoeff().transpose();
     Eigen::Matrix<double, 3, 1> bb_max = V_env.colwise().maxCoeff().transpose();
     const double bbox_diag = (bb_max - bb_min).norm();
+    // Must match `envelope_edge_id_rel_tol` in src/post_processing.h.
     const double geom_tol = 1e-6 * bbox_diag;
 
     auto max_endpoint_dist = [&](Index u0, Index u1, Index e_in) -> double {
